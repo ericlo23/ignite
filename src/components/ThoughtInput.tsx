@@ -58,7 +58,7 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
         value={thought}
         onChange={(e) => setThought(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="有什麼想法？"
+        placeholder="What's on your mind?"
         className="thought-textarea"
         disabled={isSaving || disabled}
         rows={3}
@@ -73,7 +73,7 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
           className="save-button"
           disabled={!thought.trim() || isSaving || disabled}
         >
-          {isSaving ? '儲存中...' : '儲存'}
+          {isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
     </form>

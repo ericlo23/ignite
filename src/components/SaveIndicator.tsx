@@ -20,7 +20,7 @@ export function SaveIndicator({ lastSaved, error, onDismissError }: SaveIndicato
     return null
   }
 
-  const timeStr = lastSaved.toLocaleTimeString('zh-TW', {
+  const timeStr = lastSaved.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit'
   })
@@ -28,7 +28,7 @@ export function SaveIndicator({ lastSaved, error, onDismissError }: SaveIndicato
   return (
     <div className="save-indicator success">
       <span className="indicator-icon">✓</span>
-      <span className="indicator-text">已儲存於 {timeStr}</span>
+      <span className="indicator-text">Saved at {timeStr}</span>
     </div>
   )
 }

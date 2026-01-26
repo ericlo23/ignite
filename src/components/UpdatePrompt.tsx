@@ -25,19 +25,19 @@ export function UpdatePrompt() {
 
   return (
     <div className="update-prompt">
-      <span className="update-text">有新版本可用</span>
+      <span className="update-text">New version available</span>
       <div className="update-actions">
         <button
           className="update-button primary"
           onClick={() => updateServiceWorker(true)}
         >
-          更新
+          Update
         </button>
         <button
           className="update-button"
           onClick={() => setNeedRefresh(false)}
         >
-          稍後
+          Later
         </button>
       </div>
     </div>

@@ -47,15 +47,15 @@ function App() {
           Ignite
         </h1>
         <div className="header-actions">
-          {!isOnline && <span className="offline-badge">離線</span>}
+          {!isOnline && <span className="offline-badge">Offline</span>}
           {pendingCount > 0 && (
-            <span className="pending-badge" title="待同步的想法">
+            <span className="pending-badge" title="Thoughts pending sync">
               {pendingCount}
             </span>
           )}
           {isSignedIn ? (
             <button onClick={signOut} className="auth-button">
-              登出
+              Sign Out
             </button>
           ) : null}
         </div>
@@ -81,7 +81,7 @@ function App() {
             />
             {pendingCount > 0 && isOnline && (
               <div className="sync-status">
-                正在同步 {pendingCount} 則待處理的想法...
+                Syncing {pendingCount} pending thoughts...
               </div>
             )}
           </div>
@@ -89,10 +89,10 @@ function App() {
           <div className="auth-prompt">
             <div className="auth-content">
               <img src="/pwa-192x192.png" alt="Ignite" className="auth-icon" />
-              <h2>捕捉靈光一閃</h2>
-              <p>登入 Google 帳號，將想法儲存到 Google Drive</p>
+              <h2>Ignite Your Spark</h2>
+              <p>Sign in with Google to save your thoughts to Google Drive</p>
               <button onClick={signIn} className="auth-button primary large">
-                使用 Google 登入
+                Sign in with Google
               </button>
             </div>
           </div>
@@ -100,7 +100,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>想法會儲存到 Google Drive 中的 ignite-thoughts.md</p>
+        <p>Thoughts are saved to ignite-thoughts.md in your Google Drive</p>
       </footer>
     </div>
   )
