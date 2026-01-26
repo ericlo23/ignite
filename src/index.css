@@ -1,14 +1,21 @@
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #252542;
-  --text-primary: #e8e8e8;
-  --text-secondary: #a0a0a0;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --success: #22c55e;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  /* Backgrounds - Dark ember tones */
+  --bg-primary: #1a0f0a;
+  --bg-secondary: #2a1810;
+  --bg-tertiary: #3d2416;
+
+  /* Text - Warm metallics and embers */
+  --text-primary: #ffecd1;
+  --text-secondary: #d4a574;
+
+  /* Accents - Flame gradient */
+  --accent: #ff6b35;
+  --accent-hover: #ff8956;
+
+  /* Status colors */
+  --success: #ffa726;
+  --error: #ff5252;
+  --warning: #ffb300;
 }
 
 * {
