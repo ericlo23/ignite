@@ -41,6 +41,14 @@
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
 }
 
 .header-actions {
@@ -110,7 +118,8 @@
 }
 
 .auth-icon {
-  font-size: 48px;
+  width: 80px;
+  height: 80px;
   margin-bottom: 20px;
 }
 
@@ -201,7 +210,8 @@
   }
 
   .auth-icon {
-    font-size: 40px;
+    width: 64px;
+    height: 64px;
   }
 
   .auth-content h2 {

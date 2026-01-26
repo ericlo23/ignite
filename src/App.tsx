@@ -42,7 +42,10 @@ function App() {
       <UpdatePrompt />
 
       <header className="header">
-        <h1 className="logo">Ignite</h1>
+        <h1 className="logo">
+          <img src="/pwa-192x192.png" alt="Ignite" className="logo-icon" />
+          Ignite
+        </h1>
         <div className="header-actions">
           {!isOnline && <span className="offline-badge">離線</span>}
           {pendingCount > 0 && (
@@ -85,7 +88,7 @@ function App() {
         ) : (
           <div className="auth-prompt">
             <div className="auth-content">
-              <div className="auth-icon">✨</div>
+              <img src="/pwa-192x192.png" alt="Ignite" className="auth-icon" />
               <h2>捕捉靈光一閃</h2>
               <p>登入 Google 帳號，將想法儲存到 Google Drive</p>
               <button onClick={signIn} className="auth-button primary large">
