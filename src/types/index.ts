@@ -16,6 +16,7 @@ export interface GoogleOAuth2 {
     client_id: string
     scope: string
     callback: (response: TokenResponse) => void
+    error_callback?: (error: { type: string; message?: string }) => void
   }): TokenClient
   revoke(token: string, callback?: () => void): void
 }

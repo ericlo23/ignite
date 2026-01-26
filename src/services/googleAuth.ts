@@ -10,7 +10,6 @@ let accessToken: string | null = null
 let authCallback: ((token: string) => void) | null = null
 let errorCallback: ((error: string) => void) | null = null
 
-// 從 localStorage 恢復 token
 function restoreToken(): boolean {
   const savedToken = localStorage.getItem(TOKEN_KEY)
   const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
@@ -20,13 +19,12 @@ function restoreToken(): boolean {
     return true
   }
 
-  // 清理過期的 token
+  // Clear expired token
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(TOKEN_EXPIRY_KEY)
   return false
 }
 
-// 儲存 token 到 localStorage
 function saveToken(token: string, expiresIn: number): void {
   accessToken = token
   const expiryTime = Date.now() + expiresIn * 1000
@@ -58,7 +56,6 @@ function loadGisScript(): Promise<void> {
 }
 
 export async function initGoogleAuth(): Promise<void> {
-  // 先嘗試恢復已儲存的 token
   restoreToken()
 
   await loadGisScript()
@@ -80,6 +77,10 @@ export async function initGoogleAuth(): Promise<void> {
         saveToken(response.access_token, response.expires_in)
         authCallback?.(response.access_token)
       }
+    },
+    error_callback: (error: { type: string; message?: string }) => {
+      const errorMessage = error.message || error.type || 'Sign in cancelled'
+      errorCallback?.(errorMessage)
     }
   })
 }
@@ -118,7 +119,6 @@ export function signOut(): void {
 }
 
 export function isTokenValid(): boolean {
-  // 如果記憶體中沒有 token，嘗試從 localStorage 恢復
   if (!accessToken) {
     restoreToken()
   }
