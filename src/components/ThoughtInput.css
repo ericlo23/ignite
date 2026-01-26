@@ -1,18 +1,21 @@
 .thought-form {
   width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .thought-textarea {
   width: 100%;
+  flex: 1;
   background: var(--bg-secondary);
   border: 2px solid transparent;
   border-radius: 16px;
-  padding: 16px;
-  font-size: 18px;
+  padding: 20px;
+  font-size: 20px;
   color: var(--text-primary);
   resize: none;
-  min-height: 100px;
-  max-height: 300px;
+  min-height: 200px;
   transition: border-color 0.2s, box-shadow 0.2s;
   line-height: 1.6;
 }
@@ -34,21 +37,20 @@
 
 .input-actions {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
   margin-top: 16px;
-  padding: 0 4px;
 }
 
 .save-button {
+  width: 100%;
   background: var(--accent);
   color: white;
   border: none;
-  border-radius: 12px;
-  padding: 12px 28px;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: 14px;
+  padding: 20px;
+  font-size: 20px;
+  font-weight: 600;
   transition: background 0.2s, transform 0.1s, opacity 0.2s;
+  min-height: 64px;
 }
 
 .save-button:hover:not(:disabled) {
@@ -67,13 +69,14 @@
 /* Mobile optimizations */
 @media (max-width: 480px) {
   .thought-textarea {
-    font-size: 16px;
-    padding: 14px;
-    border-radius: 12px;
+    font-size: 18px;
+    padding: 16px;
+    border-radius: 14px;
   }
 
   .save-button {
-    flex: 1;
-    padding: 14px;
+    padding: 18px;
+    font-size: 18px;
+    min-height: 60px;
   }
 }

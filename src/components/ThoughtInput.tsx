@@ -18,12 +18,16 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
     }
   }, [disabled])
 
-  // Auto-resize textarea
+  // Auto-resize textarea based on content
   useEffect(() => {
     const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 300)}px`
+    if (textarea && thought) {
+      // Only grow when content exceeds current height
+      const scrollHeight = textarea.scrollHeight
+      const currentHeight = textarea.clientHeight
+      if (scrollHeight > currentHeight) {
+        textarea.style.height = `${scrollHeight}px`
+      }
     }
   }, [thought])
 
