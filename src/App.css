@@ -191,6 +191,20 @@
   font-size: 12px;
 }
 
+.footer-links {
+  margin-top: 8px;
+}
+
+.footer-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: var(--accent);
+}
+
 /* Mobile optimizations */
 @media (max-width: 480px) {
   .app {
