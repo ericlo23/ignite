@@ -1,0 +1,79 @@
+.thought-form {
+  width: 100%;
+}
+
+.thought-textarea {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 18px;
+  color: var(--text-primary);
+  resize: none;
+  min-height: 100px;
+  max-height: 300px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.6;
+}
+
+.thought-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.thought-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.thought-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 16px;
+  padding: 0 4px;
+}
+
+.save-button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background 0.2s, transform 0.1s, opacity 0.2s;
+}
+
+.save-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.save-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .thought-textarea {
+    font-size: 16px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .save-button {
+    flex: 1;
+    padding: 14px;
+  }
+}
