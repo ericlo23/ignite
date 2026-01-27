@@ -59,6 +59,11 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Automatic sync when connection restored
    - Visual indicator for pending entries
 
+5. **Automatic Session Persistence**
+   - Silently refreshes Google OAuth token before expiry (5-minute buffer)
+   - Re-validates token when a backgrounded tab returns to foreground
+   - Falls back to sign-in screen if the Google session has expired
+
 ### User Flow
 
 ```

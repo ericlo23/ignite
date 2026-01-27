@@ -4,7 +4,9 @@ import {
   requestAuth,
   getAccessToken,
   signOut as authSignOut,
-  isTokenValid
+  isTokenValid,
+  onTokenChange,
+  setupVisibilityRefresh
 } from '../services/googleAuth'
 
 interface UseGoogleAuthReturn {
@@ -46,8 +48,23 @@ export function useGoogleAuth(): UseGoogleAuthReturn {
 
     init()
 
+    const unsubscribeToken = onTokenChange((token) => {
+      if (!mounted) return
+      if (token) {
+        setAccessToken(token)
+        setIsSignedIn(true)
+      } else {
+        setAccessToken(null)
+        setIsSignedIn(false)
+      }
+    })
+
+    const cleanupVisibility = setupVisibilityRefresh()
+
     return () => {
       mounted = false
+      unsubscribeToken()
+      cleanupVisibility()
     }
   }, [])
 

@@ -4,11 +4,86 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file'
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
 const TOKEN_KEY = 'ignite_access_token'
 const TOKEN_EXPIRY_KEY = 'ignite_token_expiry'
+const REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes before expiry
 
 let tokenClient: TokenClient | null = null
 let accessToken: string | null = null
 let authCallback: ((token: string) => void) | null = null
 let errorCallback: ((error: string) => void) | null = null
+let refreshTimerId: ReturnType<typeof setTimeout> | null = null
+let isRefreshing = false
+
+export type TokenChangeListener = (token: string | null) => void
+let tokenChangeListener: TokenChangeListener | null = null
+
+export function onTokenChange(listener: TokenChangeListener): () => void {
+  tokenChangeListener = listener
+  return () => {
+    if (tokenChangeListener === listener) {
+      tokenChangeListener = null
+    }
+  }
+}
+
+function notifyTokenChange(token: string | null): void {
+  tokenChangeListener?.(token)
+}
+
+function clearScheduledRefresh(): void {
+  if (refreshTimerId !== null) {
+    clearTimeout(refreshTimerId)
+    refreshTimerId = null
+  }
+}
+
+function scheduleTokenRefresh(expiresInMs: number): void {
+  clearScheduledRefresh()
+  const delay = Math.max(expiresInMs - REFRESH_BUFFER_MS, 0)
+  refreshTimerId = setTimeout(() => {
+    silentRefresh()
+  }, delay)
+}
+
+function silentRefresh(): void {
+  if (isRefreshing || !tokenClient) return
+  isRefreshing = true
+
+  authCallback = (token: string) => {
+    isRefreshing = false
+    notifyTokenChange(token)
+  }
+  errorCallback = () => {
+    isRefreshing = false
+    accessToken = null
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(TOKEN_EXPIRY_KEY)
+    clearScheduledRefresh()
+    notifyTokenChange(null)
+  }
+
+  tokenClient.requestAccessToken({ prompt: '' })
+}
+
+function handleVisibilityChange(): void {
+  if (document.visibilityState !== 'visible') return
+
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
+  if (!expiry) return
+
+  const remainingMs = parseInt(expiry, 10) - Date.now()
+  if (remainingMs <= REFRESH_BUFFER_MS) {
+    silentRefresh()
+  } else {
+    scheduleTokenRefresh(remainingMs)
+  }
+}
+
+export function setupVisibilityRefresh(): () => void {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+}
 
 function restoreToken(): boolean {
   const savedToken = localStorage.getItem(TOKEN_KEY)
@@ -16,6 +91,8 @@ function restoreToken(): boolean {
 
   if (savedToken && expiry && Date.now() < parseInt(expiry, 10)) {
     accessToken = savedToken
+    const remainingMs = parseInt(expiry, 10) - Date.now()
+    scheduleTokenRefresh(remainingMs)
     return true
   }
 
@@ -30,6 +107,7 @@ function saveToken(token: string, expiresIn: number): void {
   const expiryTime = Date.now() + expiresIn * 1000
   localStorage.setItem(TOKEN_KEY, token)
   localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryTime))
+  scheduleTokenRefresh(expiresIn * 1000)
 }
 
 function loadGisScript(): Promise<void> {
@@ -108,6 +186,7 @@ export function getAccessToken(): string | null {
 }
 
 export function signOut(): void {
+  clearScheduledRefresh()
   const token = accessToken
   accessToken = null
   localStorage.removeItem(TOKEN_KEY)
