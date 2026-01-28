@@ -1,15 +1,12 @@
-import type { TokenClient, TokenResponse } from '../types'
+import type { WorkerLoginResponse, WorkerAuthResponse, WorkerRefreshResponse } from '../types'
 
-const SCOPES = 'https://www.googleapis.com/auth/drive.file'
-const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
+const WORKER_URL = import.meta.env.VITE_WORKER_URL as string
 const TOKEN_KEY = 'ignite_access_token'
 const TOKEN_EXPIRY_KEY = 'ignite_token_expiry'
+const SESSION_KEY = 'ignite_session_token'
 const REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes before expiry
 
-let tokenClient: TokenClient | null = null
 let accessToken: string | null = null
-let authCallback: ((token: string) => void) | null = null
-let errorCallback: ((error: string) => void) | null = null
 let refreshTimerId: ReturnType<typeof setTimeout> | null = null
 let isRefreshing = false
 
@@ -44,24 +41,36 @@ function scheduleTokenRefresh(expiresInMs: number): void {
   }, delay)
 }
 
-function silentRefresh(): void {
-  if (isRefreshing || !tokenClient) return
+async function silentRefresh(): Promise<void> {
+  const sessionToken = localStorage.getItem(SESSION_KEY)
+  if (isRefreshing || !sessionToken) return
   isRefreshing = true
 
-  authCallback = (token: string) => {
-    isRefreshing = false
-    notifyTokenChange(token)
-  }
-  errorCallback = () => {
-    isRefreshing = false
-    accessToken = null
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(TOKEN_EXPIRY_KEY)
-    clearScheduledRefresh()
-    notifyTokenChange(null)
-  }
+  try {
+    const res = await fetch(`${WORKER_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
 
-  tokenClient.requestAccessToken({ prompt: '' })
+    if (!res.ok) {
+      // Session expired or refresh token revoked
+      accessToken = null
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_EXPIRY_KEY)
+      localStorage.removeItem(SESSION_KEY)
+      clearScheduledRefresh()
+      notifyTokenChange(null)
+      return
+    }
+
+    const data: WorkerRefreshResponse = await res.json()
+    saveToken(data.access_token, data.expires_in)
+    notifyTokenChange(data.access_token)
+  } catch {
+    // Network error — don't clear session, will retry on visibility change
+  } finally {
+    isRefreshing = false
+  }
 }
 
 function handleVisibilityChange(): void {
@@ -96,7 +105,7 @@ function restoreToken(): boolean {
     return true
   }
 
-  // Clear expired token
+  // Clear expired access token but keep session for refresh
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(TOKEN_EXPIRY_KEY)
   return false
@@ -110,71 +119,55 @@ function saveToken(token: string, expiresIn: number): void {
   scheduleTokenRefresh(expiresIn * 1000)
 }
 
-function loadGisScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) {
-      resolve()
-      return
-    }
-
-    const existing = document.querySelector(`script[src="${GIS_SCRIPT_URL}"]`)
-    if (existing) {
-      existing.addEventListener('load', () => resolve())
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = GIS_SCRIPT_URL
-    script.async = true
-    script.defer = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Google Identity Services'))
-    document.head.appendChild(script)
-  })
-}
-
 export async function initGoogleAuth(): Promise<void> {
-  restoreToken()
-
-  await loadGisScript()
-
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-  if (!clientId) {
-    throw new Error('VITE_GOOGLE_CLIENT_ID is not configured')
+  if (!WORKER_URL) {
+    throw new Error('VITE_WORKER_URL is not configured')
   }
 
-  tokenClient = window.google!.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: SCOPES,
-    callback: (response: TokenResponse) => {
-      if (response.error) {
-        errorCallback?.(response.error)
-        return
-      }
-      if (response.access_token) {
-        saveToken(response.access_token, response.expires_in)
-        authCallback?.(response.access_token)
-      }
-    },
-    error_callback: (error: { type: string; message?: string }) => {
-      const errorMessage = error.message || error.type || 'Sign in cancelled'
-      errorCallback?.(errorMessage)
-    }
-  })
+  const hasValidToken = restoreToken()
+
+  // If we have a session but no valid access token, try a silent refresh
+  if (!hasValidToken && localStorage.getItem(SESSION_KEY)) {
+    await silentRefresh()
+  }
 }
 
-export function requestAuth(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!tokenClient) {
-      reject(new Error('Google Auth not initialized'))
-      return
-    }
+export async function signIn(): Promise<void> {
+  const redirectUri = `${window.location.origin}/auth/callback`
+  const res = await fetch(`${WORKER_URL}/auth/login?redirect_uri=${encodeURIComponent(redirectUri)}`)
+  if (!res.ok) {
+    throw new Error('Failed to get login URL')
+  }
+  const data: WorkerLoginResponse = await res.json()
+  // Store state for CSRF verification
+  sessionStorage.setItem('ignite_oauth_state', data.state)
+  // Redirect to Google OAuth consent
+  window.location.href = data.url
+}
 
-    authCallback = resolve
-    errorCallback = reject
+export async function handleAuthCallback(code: string, state: string): Promise<void> {
+  const savedState = sessionStorage.getItem('ignite_oauth_state')
+  sessionStorage.removeItem('ignite_oauth_state')
 
-    tokenClient.requestAccessToken({ prompt: '' })
+  if (!savedState || savedState !== state) {
+    throw new Error('Invalid OAuth state — possible CSRF attack')
+  }
+
+  const redirectUri = `${window.location.origin}/auth/callback`
+  const res = await fetch(`${WORKER_URL}/auth/callback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
   })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Auth callback failed' }))
+    throw new Error((err as { error: string }).error || 'Auth callback failed')
+  }
+
+  const data: WorkerAuthResponse = await res.json()
+  saveToken(data.access_token, data.expires_in)
+  localStorage.setItem(SESSION_KEY, data.session_token)
 }
 
 export function getAccessToken(): string | null {
@@ -185,15 +178,25 @@ export function getAccessToken(): string | null {
   return null
 }
 
-export function signOut(): void {
+export async function signOut(): Promise<void> {
   clearScheduledRefresh()
-  const token = accessToken
+  const sessionToken = localStorage.getItem(SESSION_KEY)
+
   accessToken = null
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(TOKEN_EXPIRY_KEY)
+  localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem('ignite_file_id')
 
-  if (token && window.google?.accounts?.oauth2) {
-    window.google.accounts.oauth2.revoke(token, () => {})
+  if (sessionToken) {
+    try {
+      await fetch(`${WORKER_URL}/auth/revoke`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      })
+    } catch {
+      // Best-effort revocation
+    }
   }
 }
 

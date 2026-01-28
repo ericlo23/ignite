@@ -60,9 +60,12 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Visual indicator for pending entries
 
 5. **Automatic Session Persistence**
-   - Silently refreshes Google OAuth token before expiry (5-minute buffer)
+   - Uses authorization code flow with a Cloudflare Worker as token broker
+   - Refresh tokens stored server-side in KV — no client secret exposed
+   - Silently refreshes access token via Worker before expiry (5-minute buffer)
    - Re-validates token when a backgrounded tab returns to foreground
-   - Falls back to sign-in screen if the Google session has expired
+   - Falls back to sign-in screen if the session has expired
+   - No popup flash on refresh — fully server-side token renewal
 
 ### User Flow
 
@@ -76,6 +79,7 @@ Open App → (Sign in if needed) → Type thought → Save → Done
 
 - **Frontend**: React 18 + TypeScript
 - **Build Tool**: Vite
+- **Auth Backend**: Cloudflare Worker (token broker)
 - **PWA**: vite-plugin-pwa (Workbox)
 - **Storage**: Google Drive API
 - **Offline**: IndexedDB (idb)

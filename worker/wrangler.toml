@@ -1,0 +1,10 @@
+name = "ignite-auth"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://ignite.yuanhonglo.dev"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "092f35701cb943e59c64312cb6123019"

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   initGoogleAuth,
-  requestAuth,
+  signIn as authSignIn,
   getAccessToken,
   signOut as authSignOut,
   isTokenValid,
@@ -14,7 +14,7 @@ interface UseGoogleAuthReturn {
   isLoading: boolean
   error: string | null
   accessToken: string | null
-  signIn: () => Promise<void>
+  signIn: () => void
   signOut: () => void
 }
 
@@ -68,25 +68,24 @@ export function useGoogleAuth(): UseGoogleAuthReturn {
     }
   }, [])
 
-  const signIn = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const token = await requestAuth()
-      setAccessToken(token)
-      setIsSignedIn(true)
-    } catch (err) {
+  const signIn = useCallback(() => {
+    setError(null)
+    authSignIn().catch((err) => {
       setError(err instanceof Error ? err.message : 'Sign in failed')
-    } finally {
-      setIsLoading(false)
-    }
+    })
   }, [])
 
   const signOut = useCallback(() => {
-    authSignOut()
-    setAccessToken(null)
-    setIsSignedIn(false)
-    setError(null)
+    authSignOut().then(() => {
+      setAccessToken(null)
+      setIsSignedIn(false)
+      setError(null)
+    }).catch(() => {
+      // Clear local state even if revocation fails
+      setAccessToken(null)
+      setIsSignedIn(false)
+      setError(null)
+    })
   }, [])
 
   return {

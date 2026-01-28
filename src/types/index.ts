@@ -1,38 +1,18 @@
-// Google Identity Services types
-export interface TokenResponse {
+// Worker auth response types
+export interface WorkerLoginResponse {
+  url: string
+  state: string
+}
+
+export interface WorkerAuthResponse {
   access_token: string
   expires_in: number
-  token_type: string
-  scope: string
-  error?: string
+  session_token: string
 }
 
-export interface TokenClient {
-  requestAccessToken(options?: { prompt?: string }): void
-}
-
-export interface GoogleOAuth2 {
-  initTokenClient(config: {
-    client_id: string
-    scope: string
-    callback: (response: TokenResponse) => void
-    error_callback?: (error: { type: string; message?: string }) => void
-  }): TokenClient
-  revoke(token: string, callback?: () => void): void
-}
-
-export interface GoogleAccounts {
-  oauth2: GoogleOAuth2
-}
-
-export interface Google {
-  accounts: GoogleAccounts
-}
-
-declare global {
-  interface Window {
-    google?: Google
-  }
+export interface WorkerRefreshResponse {
+  access_token: string
+  expires_in: number
 }
 
 // App types

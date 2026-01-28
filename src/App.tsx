@@ -6,6 +6,7 @@ import { useOfflineQueue } from './hooks/useOfflineQueue'
 import { ThoughtInput } from './components/ThoughtInput'
 import { SaveIndicator } from './components/SaveIndicator'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { AuthCallback } from './pages/AuthCallback'
 import './App.css'
 
 // Lazy load legal pages
@@ -33,15 +34,6 @@ function App() {
     await saveThought(thought)
   }
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="app loading">
-        <div className="spinner" />
-      </div>
-    )
-  }
-
   return (
     <Suspense fallback={
       <div className="app loading">
@@ -49,79 +41,86 @@ function App() {
       </div>
     }>
       <Routes>
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/" element={
-          <div className="app">
-            <UpdatePrompt />
+          isLoading ? (
+            <div className="app loading">
+              <div className="spinner" />
+            </div>
+          ) : (
+            <div className="app">
+              <UpdatePrompt />
 
-            <header className="header">
-              <h1 className="logo">
-                <img src="/pwa-192x192.png" alt="Ignite" className="logo-icon" />
-                Ignite
-              </h1>
-              <div className="header-actions">
-                {!isOnline && <span className="offline-badge">Offline</span>}
-                {pendingCount > 0 && (
-                  <span className="pending-badge" title="Thoughts pending sync">
-                    {pendingCount}
-                  </span>
-                )}
-                {isSignedIn ? (
-                  <button onClick={signOut} className="auth-button">
-                    Sign Out
-                  </button>
-                ) : null}
-              </div>
-            </header>
-
-            <main className="main">
-              {authError && (
-                <div className="auth-error">
-                  {authError}
-                </div>
-              )}
-
-              {isSignedIn ? (
-                <div className="capture-container">
-                  <ThoughtInput
-                    onSave={handleSave}
-                    isSaving={isSaving || isSyncing}
-                  />
-                  <SaveIndicator
-                    lastSaved={lastSaved}
-                    error={driveError}
-                    onDismissError={clearError}
-                  />
-                  {pendingCount > 0 && isOnline && (
-                    <div className="sync-status">
-                      Syncing {pendingCount} pending thoughts...
-                    </div>
+              <header className="header">
+                <h1 className="logo">
+                  <img src="/pwa-192x192.png" alt="Ignite" className="logo-icon" />
+                  Ignite
+                </h1>
+                <div className="header-actions">
+                  {!isOnline && <span className="offline-badge">Offline</span>}
+                  {pendingCount > 0 && (
+                    <span className="pending-badge" title="Thoughts pending sync">
+                      {pendingCount}
+                    </span>
                   )}
-                </div>
-              ) : (
-                <div className="auth-prompt">
-                  <div className="auth-content">
-                    <img src="/pwa-192x192.png" alt="Ignite" className="auth-icon" />
-                    <h2>Ignite Your Spark</h2>
-                    <p>Sign in with Google to save your thoughts to Google Drive</p>
-                    <button onClick={signIn} className="auth-button primary large">
-                      Sign in with Google
+                  {isSignedIn ? (
+                    <button onClick={signOut} className="auth-button">
+                      Sign Out
                     </button>
-                  </div>
+                  ) : null}
                 </div>
-              )}
-            </main>
+              </header>
 
-            <footer className="footer">
-              <p>Thoughts are saved to ignite-thoughts.md in your Google Drive</p>
-              <p className="footer-links">
-                <Link to="/privacy-policy">Privacy Policy</Link>
-                <span> · </span>
-                <Link to="/terms-of-service">Terms of Service</Link>
-              </p>
-            </footer>
-          </div>
+              <main className="main">
+                {authError && (
+                  <div className="auth-error">
+                    {authError}
+                  </div>
+                )}
+
+                {isSignedIn ? (
+                  <div className="capture-container">
+                    <ThoughtInput
+                      onSave={handleSave}
+                      isSaving={isSaving || isSyncing}
+                    />
+                    <SaveIndicator
+                      lastSaved={lastSaved}
+                      error={driveError}
+                      onDismissError={clearError}
+                    />
+                    {pendingCount > 0 && isOnline && (
+                      <div className="sync-status">
+                        Syncing {pendingCount} pending thoughts...
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="auth-prompt">
+                    <div className="auth-content">
+                      <img src="/pwa-192x192.png" alt="Ignite" className="auth-icon" />
+                      <h2>Ignite Your Spark</h2>
+                      <p>Sign in with Google to save your thoughts to Google Drive</p>
+                      <button onClick={signIn} className="auth-button primary large">
+                        Sign in with Google
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </main>
+
+              <footer className="footer">
+                <p>Thoughts are saved to ignite-thoughts.md in your Google Drive</p>
+                <p className="footer-links">
+                  <Link to="/privacy-policy">Privacy Policy</Link>
+                  <span> · </span>
+                  <Link to="/terms-of-service">Terms of Service</Link>
+                </p>
+              </footer>
+            </div>
+          )
         } />
       </Routes>
     </Suspense>
