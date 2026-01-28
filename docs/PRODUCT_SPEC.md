@@ -14,12 +14,12 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
 
 ## Value Proposition
 
-| Value | Description |
-|-------|-------------|
-| **Instant Capture** | Ideas are fleeting - record them in seconds |
-| **Minimal Interface** | Zero barriers, pure focus on content |
-| **Cloud Sync** | Saved to Google Drive, accessible anywhere |
-| **Offline Ready** | Works without internet, syncs when reconnected |
+| Value                 | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| **Instant Capture**   | Ideas are fleeting - record them in seconds    |
+| **Minimal Interface** | Zero barriers, pure focus on content           |
+| **Cloud Sync**        | Saved to Google Drive, accessible anywhere     |
+| **Offline Ready**     | Works without internet, syncs when reconnected |
 
 ## Target Users
 
@@ -66,6 +66,7 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Re-validates token when a backgrounded tab returns to foreground
    - Falls back to sign-in screen if the session has expired
    - No popup flash on refresh — fully server-side token renewal
+   - Updates auth state immediately after OAuth callback (no refresh required)
 
 ### User Flow
 
@@ -96,11 +97,13 @@ Thoughts are stored as Markdown in Google Drive:
 ## 2026-01-26
 
 ### 09:15 AM
+
 First thought of the day captured here.
 
 ---
 
 ### 02:30 PM
+
 Another idea that came to mind.
 
 ---
@@ -112,18 +115,18 @@ Another idea that came to mind.
 
 **Fire & Flame Theme** - Warm, energetic colors that embody the "ignited" concept
 
-| Role | Color | Hex |
-|------|-------|-----|
-| Primary/Accent | Flame Orange | `#ff6b35` |
-| Accent Hover | Light Orange Glow | `#ff8956` |
-| Background Primary | Deep Charcoal | `#1a0f0a` |
-| Background Secondary | Warm Dark Brown | `#2a1810` |
-| Background Tertiary | Ember Glow | `#3d2416` |
-| Text Primary | Firelight Cream | `#ffecd1` |
-| Text Secondary | Warm Bronze | `#d4a574` |
-| Success | Warm Amber | `#ffa726` |
-| Error | Ember Red | `#ff5252` |
-| Warning | Golden Flame | `#ffb300` |
+| Role                 | Color             | Hex       |
+| -------------------- | ----------------- | --------- |
+| Primary/Accent       | Flame Orange      | `#ff6b35` |
+| Accent Hover         | Light Orange Glow | `#ff8956` |
+| Background Primary   | Deep Charcoal     | `#1a0f0a` |
+| Background Secondary | Warm Dark Brown   | `#2a1810` |
+| Background Tertiary  | Ember Glow        | `#3d2416` |
+| Text Primary         | Firelight Cream   | `#ffecd1` |
+| Text Secondary       | Warm Bronze       | `#d4a574` |
+| Success              | Warm Amber        | `#ffa726` |
+| Error                | Ember Red         | `#ff5252` |
+| Warning              | Golden Flame      | `#ffb300` |
 
 ### Design Principles
 

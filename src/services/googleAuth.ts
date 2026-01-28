@@ -168,6 +168,7 @@ export async function handleAuthCallback(code: string, state: string): Promise<v
   const data: WorkerAuthResponse = await res.json()
   saveToken(data.access_token, data.expires_in)
   localStorage.setItem(SESSION_KEY, data.session_token)
+  notifyTokenChange(data.access_token)
 }
 
 export function getAccessToken(): string | null {
