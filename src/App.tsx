@@ -26,13 +26,13 @@ function App() {
     }
   }, [isOnline, isSignedIn, pendingCount, isSyncing, syncPending, saveThought])
 
-  const handleSave = async (thought: string) => {
+  const handleSave = async (thought: string): Promise<boolean> => {
     if (!isOnline || !isSignedIn) {
       // Queue for later sync
       await queueEntry(thought)
-      return
+      return true
     }
-    await saveThought(thought)
+    return await saveThought(thought)
   }
 
   return (

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react'
 import './ThoughtInput.css'
 
 interface ThoughtInputProps {
-  onSave: (thought: string) => void
+  onSave: (thought: string) => Promise<boolean>
   isSaving: boolean
   disabled?: boolean
 }
@@ -31,14 +31,17 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
     }
   }, [thought])
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (thought.trim() && !isSaving && !disabled) {
-      onSave(thought.trim())
-      setThought('')
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
+      const success = await onSave(thought.trim())
+      // Only clear input if save was successful
+      if (success) {
+        setThought('')
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto'
+        }
       }
     }
   }
