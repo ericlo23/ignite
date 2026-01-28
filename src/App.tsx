@@ -12,6 +12,7 @@ import './App.css'
 // Lazy load legal pages
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })))
 const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })))
+const Reauthorize = lazy(() => import('./pages/Reauthorize').then(module => ({ default: module.Reauthorize })))
 
 function App() {
   const { isSignedIn, isLoading, error: authError, accessToken, signIn, signOut } = useGoogleAuth()
@@ -42,6 +43,7 @@ function App() {
     }>
       <Routes>
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/reauthorize" element={<Reauthorize />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/" element={
@@ -91,6 +93,11 @@ function App() {
                       error={driveError}
                       onDismissError={clearError}
                     />
+                    {driveError && (
+                      <div className="reauth-hint">
+                        Having trouble saving? <Link to="/auth/reauthorize">Reauthorize Google Drive access</Link>
+                      </div>
+                    )}
                     {pendingCount > 0 && isOnline && (
                       <div className="sync-status">
                         Syncing {pendingCount} pending thoughts...

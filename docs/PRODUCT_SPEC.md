@@ -67,6 +67,8 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Falls back to sign-in screen if the session has expired
    - No popup flash on refresh — fully server-side token renewal
    - Updates auth state immediately after OAuth callback (no refresh required)
+   - Provides a reauthorization help page explaining the Drive permission checkbox
+   - Verifies granted scopes after login and redirects to reauthorize if Drive access is missing
 
 ### User Flow
 

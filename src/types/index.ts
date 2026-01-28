@@ -8,11 +8,13 @@ export interface WorkerAuthResponse {
   access_token: string
   expires_in: number
   session_token: string
+  scope?: string
 }
 
 export interface WorkerRefreshResponse {
   access_token: string
   expires_in: number
+  scope?: string
 }
 
 // App types

@@ -17,8 +17,12 @@ export function AuthCallback() {
     }
 
     handleAuthCallback(code, state)
-      .then(() => {
-        navigate('/', { replace: true })
+      .then((hasDriveScope) => {
+        if (hasDriveScope) {
+          navigate('/', { replace: true })
+        } else {
+          navigate('/auth/reauthorize', { replace: true })
+        }
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Authentication failed')

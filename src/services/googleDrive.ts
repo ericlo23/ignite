@@ -4,6 +4,7 @@ const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD_API_BASE = 'https://www.googleapis.com/upload/drive/v3'
 const THOUGHTS_FILE_NAME = 'ignite-thoughts.md'
 const FILE_ID_KEY = 'ignite_file_id'
+const DRIVE_PERMISSION_ERROR = 'Google Drive permission missing. Please reauthorize and ensure Drive access is checked.'
 
 interface DriveFile {
   id: string
@@ -12,6 +13,27 @@ interface DriveFile {
 
 interface SearchResult {
   files: DriveFile[]
+}
+
+async function buildDriveError(response: Response, fallback: string): Promise<string> {
+  if (response.status === 401 || response.status === 403) {
+    return DRIVE_PERMISSION_ERROR
+  }
+
+  if (response.status === 404) {
+    return 'File not found'
+  }
+
+  try {
+    const data = await response.json() as { error?: { message?: string } }
+    if (data?.error?.message) {
+      return data.error.message
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
+  return fallback
 }
 
 /**
@@ -50,7 +72,7 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
   )
 
   if (!searchResponse.ok) {
-    throw new Error('Failed to search for file')
+    throw new Error(await buildDriveError(searchResponse, 'Failed to search for file'))
   }
 
   const searchResult: SearchResult = await searchResponse.json()
@@ -86,7 +108,7 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
   )
 
   if (!createResponse.ok) {
-    throw new Error('Failed to create file')
+    throw new Error(await buildDriveError(createResponse, 'Failed to create file'))
   }
 
   const createResult = await createResponse.json()
@@ -109,7 +131,7 @@ export async function getFileContent(
   )
 
   if (!response.ok) {
-    throw new Error('Failed to read file')
+    throw new Error(await buildDriveError(response, 'Failed to read file'))
   }
 
   return response.text()
@@ -144,7 +166,7 @@ export async function appendThought(
   )
 
   if (!response.ok) {
-    throw new Error('Failed to update file')
+    throw new Error(await buildDriveError(response, 'Failed to update file'))
   }
 }
 

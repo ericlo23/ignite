@@ -4,7 +4,9 @@ const WORKER_URL = import.meta.env.VITE_WORKER_URL as string
 const TOKEN_KEY = 'ignite_access_token'
 const TOKEN_EXPIRY_KEY = 'ignite_token_expiry'
 const SESSION_KEY = 'ignite_session_token'
+const GRANTED_SCOPES_KEY = 'ignite_granted_scopes'
 const REFRESH_BUFFER_MS = 5 * 60 * 1000 // 5 minutes before expiry
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 
 let accessToken: string | null = null
 let refreshTimerId: ReturnType<typeof setTimeout> | null = null
@@ -119,6 +121,22 @@ function saveToken(token: string, expiresIn: number): void {
   scheduleTokenRefresh(expiresIn * 1000)
 }
 
+function scopeIncludes(scope: string | null | undefined, required: string): boolean {
+  if (!scope) return false
+  return scope.split(/\s+/).includes(required)
+}
+
+async function fetchGrantedScopes(token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(token)}`)
+    if (!res.ok) return null
+    const data = await res.json() as { scope?: string }
+    return data.scope ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function initGoogleAuth(): Promise<void> {
   if (!WORKER_URL) {
     throw new Error('VITE_WORKER_URL is not configured')
@@ -145,7 +163,7 @@ export async function signIn(): Promise<void> {
   window.location.href = data.url
 }
 
-export async function handleAuthCallback(code: string, state: string): Promise<void> {
+export async function handleAuthCallback(code: string, state: string): Promise<boolean> {
   const savedState = sessionStorage.getItem('ignite_oauth_state')
   sessionStorage.removeItem('ignite_oauth_state')
 
@@ -169,6 +187,17 @@ export async function handleAuthCallback(code: string, state: string): Promise<v
   saveToken(data.access_token, data.expires_in)
   localStorage.setItem(SESSION_KEY, data.session_token)
   notifyTokenChange(data.access_token)
+  if (data.scope) {
+    localStorage.setItem(GRANTED_SCOPES_KEY, data.scope)
+  }
+
+  const hasDriveScopeFromResponse = scopeIncludes(data.scope, DRIVE_SCOPE)
+  const tokenInfoScopes = await fetchGrantedScopes(data.access_token)
+  if (tokenInfoScopes) {
+    localStorage.setItem(GRANTED_SCOPES_KEY, tokenInfoScopes)
+  }
+
+  return hasDriveScopeFromResponse || scopeIncludes(tokenInfoScopes, DRIVE_SCOPE)
 }
 
 export function getAccessToken(): string | null {

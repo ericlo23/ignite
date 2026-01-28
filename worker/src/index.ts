@@ -106,6 +106,7 @@ async function handleCallback(request: Request, env: Env, cors: Record<string, s
       access_token: tokens.access_token,
       expires_in: tokens.expires_in,
       session_token: sessionToken,
+      scope: tokens.scope,
     },
     200,
     cors
