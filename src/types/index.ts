@@ -36,3 +36,12 @@ export interface DriveState {
   lastSaved: Date | null
   error: string | null
 }
+
+export interface ParsedThought {
+  id: string          // Generated from timestamp
+  date: string        // YYYY-MM-DD
+  time: string        // HH:MM AM/PM
+  content: string     // Thought text
+  timestamp: Date     // For sorting
+  isPending?: boolean // True for offline thoughts not yet synced
+}

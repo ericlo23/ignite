@@ -77,6 +77,25 @@
   text-align: center;
 }
 
+.review-button {
+  background: transparent;
+  border: 1px solid var(--text-secondary);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.review-button:hover {
+  border-color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
 /* Main content */
 .main {
   flex: 1;

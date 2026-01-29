@@ -9,10 +9,11 @@ import { UpdatePrompt } from './components/UpdatePrompt'
 import { AuthCallback } from './pages/AuthCallback'
 import './App.css'
 
-// Lazy load legal pages
+// Lazy load legal pages and review page
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })))
 const TermsOfService = lazy(() => import('./pages/TermsOfService').then(module => ({ default: module.TermsOfService })))
 const Reauthorize = lazy(() => import('./pages/Reauthorize').then(module => ({ default: module.Reauthorize })))
+const ReviewPage = lazy(() => import('./pages/ReviewPage').then(module => ({ default: module.ReviewPage })))
 
 function App() {
   const { isSignedIn, isLoading, error: authError, accessToken, signIn, signOut } = useGoogleAuth()
@@ -44,6 +45,7 @@ function App() {
       <Routes>
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/reauthorize" element={<Reauthorize />} />
+        <Route path="/review" element={<ReviewPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/" element={
@@ -66,6 +68,11 @@ function App() {
                     <span className="pending-badge" title="Thoughts pending sync">
                       {pendingCount}
                     </span>
+                  )}
+                  {isSignedIn && (
+                    <Link to="/review" className="review-button">
+                      Review
+                    </Link>
                   )}
                   {isSignedIn ? (
                     <button onClick={signOut} className="auth-button">

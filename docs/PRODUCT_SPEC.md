@@ -70,10 +70,23 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Provides a reauthorization help page explaining the Drive permission checkbox
    - Verifies granted scopes after login and redirects to reauthorize if Drive access is missing
 
+6. **Thought Review**
+   - View all captured thoughts in reverse chronological order
+   - Thoughts grouped by date with individual timestamps
+   - Displays both synced (Drive) and pending (offline) thoughts
+   - Clean, readable interface following fire theme
+   - Navigate via Review button in header
+
 ### User Flow
 
 ```
 Open App → (Sign in if needed) → Type thought → Save → Done
+```
+
+### Review Flow
+
+```
+Open App → Review Thoughts → Browse by date → Return to Capture
 ```
 
 ## Technical Architecture
@@ -86,25 +99,24 @@ Open App → (Sign in if needed) → Type thought → Save → Done
 - **PWA**: vite-plugin-pwa (Workbox)
 - **Storage**: Google Drive API
 - **Offline**: IndexedDB (idb)
+- **Thought Parser**: Utility for extracting structured thoughts from markdown
+- **useThoughts Hook**: Hook for thought retrieval and merging Drive + offline sources
+- **ReviewPage**: Component displaying all thoughts with date grouping
 
 ### Data Format
 
 Thoughts are stored as Markdown in Google Drive:
 
 ```markdown
-# Ignite Thoughts
+# 2026-01-26
 
----
-
-## 2026-01-26
-
-### 09:15 AM
+## 09:15 AM
 
 First thought of the day captured here.
 
 ---
 
-### 02:30 PM
+## 02:30 PM
 
 Another idea that came to mind.
 

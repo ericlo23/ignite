@@ -1,4 +1,6 @@
 import { formatThoughtEntry, getInitialContent } from '../utils/markdown'
+import { parseThoughts } from '../utils/thoughtParser'
+import type { ParsedThought } from '../types'
 
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD_API_BASE = 'https://www.googleapis.com/upload/drive/v3'
@@ -168,6 +170,15 @@ export async function appendThought(
   if (!response.ok) {
     throw new Error(await buildDriveError(response, 'Failed to update file'))
   }
+}
+
+/**
+ * Get all thoughts from the file
+ */
+export async function getAllThoughts(accessToken: string): Promise<ParsedThought[]> {
+  const fileId = await findOrCreateThoughtsFile(accessToken)
+  const content = await getFileContent(accessToken, fileId)
+  return parseThoughts(content)
 }
 
 /**
