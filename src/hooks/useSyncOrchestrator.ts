@@ -110,6 +110,8 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     if (!accessToken) return
 
     setIsSyncing(true)
+    setSyncError(null)
+    setHasPermissionError(false)
 
     try {
       await appendThought(thought, id)
