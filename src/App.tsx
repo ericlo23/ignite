@@ -1,8 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { useGoogleAuth } from './hooks/useGoogleAuth'
-import { useGoogleDrive } from './hooks/useGoogleDrive'
-import { useThoughtStorage } from './hooks/useThoughtStorage'
+import { useSyncOrchestrator } from './hooks/useSyncOrchestrator'
 import { ThoughtInput } from './components/ThoughtInput'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { ErrorHint } from './components/ErrorHint'
@@ -18,8 +17,18 @@ const ReviewPage = lazy(() => import('./pages/ReviewPage').then(module => ({ def
 
 function App() {
   const { isSignedIn, isLoading, error: authError, accessToken, signIn, signOut } = useGoogleAuth()
-  const { pullAndMerge, syncThoughtToDrive, isSyncing, syncError, hasPermissionError: hasSyncPermissionError, clearSyncError } = useGoogleDrive(accessToken)
-  const { saveThought, isSaving, saveError, syncStats, updateSyncStats, clearSaveError } = useThoughtStorage()
+  const {
+    saveThought,
+    pullAndMerge,
+    isSaving,
+    isSyncing,
+    saveError,
+    syncError,
+    syncStats,
+    hasPermissionError: hasSyncPermissionError,
+    clearSaveError,
+    clearSyncError
+  } = useSyncOrchestrator(accessToken)
 
   const [isOnline] = useState(navigator.onLine)
 
@@ -28,12 +37,12 @@ function App() {
     if (!isSignedIn || !accessToken) return
 
     // Initial sync on mount
-    pullAndMerge().then(() => updateSyncStats())
+    pullAndMerge()
 
     // Periodic sync every 5 minutes
     const interval = setInterval(() => {
       if (navigator.onLine) {
-        pullAndMerge().then(() => updateSyncStats())
+        pullAndMerge()
       }
     }, 5 * 60 * 1000)
 
@@ -44,34 +53,13 @@ function App() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isSignedIn && navigator.onLine) {
-        pullAndMerge().then(() => updateSyncStats())
+        pullAndMerge()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [isSignedIn, pullAndMerge])
-
-  const handleSave = async (thought: string): Promise<boolean> => {
-    if (!thought.trim()) return false
-
-    try {
-      // Save locally first
-      const id = await saveThought(thought.trim())
-
-      // Background sync to Drive if signed in and online
-      if (isSignedIn && isOnline) {
-        syncThoughtToDrive(id, thought.trim()).then(() => {
-          // Update stats after sync completes
-          updateSyncStats()
-        })
-      }
-
-      return true
-    } catch (error) {
-      return false
-    }
-  }
 
   const handleSignOut = () => {
     signOut()
@@ -142,7 +130,7 @@ function App() {
                 {/* Input area - limited height */}
                 <div className="capture-container">
                   <ThoughtInput
-                    onSave={handleSave}
+                    onSave={saveThought}
                     isSaving={isSaving || isSyncing}
                   />
                 </div>

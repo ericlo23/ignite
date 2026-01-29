@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { saveThought as saveThoughtToStorage, getSyncStats } from '../services/storage'
+import {
+  saveThought as saveThoughtToStorage,
+  getSyncStats,
+  mergeThoughtsFromDrive,
+  getUnsyncedThoughts,
+  markSyncedToDrive,
+  ThoughtEntry
+} from '../services/storage'
 
 interface SyncStats {
   total: number
@@ -15,6 +22,11 @@ interface UseThoughtStorageReturn {
   syncStats: SyncStats
   updateSyncStats: () => Promise<void>
   clearSaveError: () => void
+  // Sync operations
+  mergeFromDrive: (driveThoughts: ThoughtEntry[]) => Promise<void>
+  getUnsynced: () => Promise<ThoughtEntry[]>
+  markSynced: (id: number) => Promise<void>
+  markAllSynced: (ids: number[]) => Promise<void>
 }
 
 export function useThoughtStorage(): UseThoughtStorageReturn {
@@ -37,7 +49,8 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
   // Save thought to local storage
   const saveThought = useCallback(async (thought: string): Promise<number> => {
     if (!thought.trim()) {
-      throw new Error('Thought cannot be empty')
+      setSaveError('Thought cannot be empty')
+      return 0
     }
 
     setIsSaving(true)
@@ -51,7 +64,7 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save locally'
       setSaveError(message)
-      throw error
+      return 0
     } finally {
       setIsSaving(false)
     }
@@ -61,6 +74,28 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
     setSaveError(null)
   }, [])
 
+  // Sync operations
+  const mergeFromDrive = useCallback(async (driveThoughts: ThoughtEntry[]): Promise<void> => {
+    await mergeThoughtsFromDrive(driveThoughts)
+    await updateSyncStats()
+  }, [updateSyncStats])
+
+  const getUnsynced = useCallback(async (): Promise<ThoughtEntry[]> => {
+    return await getUnsyncedThoughts()
+  }, [])
+
+  const markSynced = useCallback(async (id: number): Promise<void> => {
+    await markSyncedToDrive(id)
+    await updateSyncStats()
+  }, [updateSyncStats])
+
+  const markAllSynced = useCallback(async (ids: number[]): Promise<void> => {
+    for (const id of ids) {
+      await markSyncedToDrive(id)
+    }
+    await updateSyncStats()
+  }, [updateSyncStats])
+
   return {
     saveThought,
     isSaving,
@@ -68,6 +103,11 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
     saveError,
     syncStats,
     updateSyncStats,
-    clearSaveError
+    clearSaveError,
+    // Sync operations
+    mergeFromDrive,
+    getUnsynced,
+    markSynced,
+    markAllSynced
   }
 }
