@@ -18,12 +18,14 @@ interface UseGoogleDriveReturn {
   syncThoughtToDrive: (id: number, thought: string) => Promise<void>
   isSyncing: boolean
   syncError: string | null
+  hasPermissionError: boolean
   clearSyncError: () => void
 }
 
 export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [hasPermissionError, setHasPermissionError] = useState(false)
   const fileIdRef = useRef<string | null>(null)
 
   /**
@@ -81,13 +83,19 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
       const message = err instanceof Error ? err.message : 'Sync failed'
       setSyncError(message)
 
+      // Check if it's a permission error
+      const isPermissionError =
+        message.toLowerCase().includes('permission') ||
+        message.toLowerCase().includes('unauthorized') ||
+        message.toLowerCase().includes('401') ||
+        message.toLowerCase().includes('403')
+      setHasPermissionError(isPermissionError)
+
       // If file not found, clear cache
       if (message.includes('not found') || message.includes('404')) {
         fileIdRef.current = null
         clearFileCache()
       }
-
-      throw err
     } finally {
       setIsSyncing(false)
     }
@@ -95,7 +103,7 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
 
   /**
    * Sync a single thought to Drive (append operation)
-   * Fails silently for background sync, will retry on next pullAndMerge
+   * Sets syncError if sync fails
    */
   const syncThoughtToDrive = useCallback(async (id: number, thought: string): Promise<void> => {
     if (!accessToken) return
@@ -112,13 +120,24 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
       // Mark as synced
       await markSyncedToDrive(id)
     } catch (error) {
-      // Fails silently for background sync
+      const message = error instanceof Error ? error.message : 'Background sync failed'
+      setSyncError(message)
+
+      // Check if it's a permission error
+      const isPermissionError =
+        message.toLowerCase().includes('permission') ||
+        message.toLowerCase().includes('unauthorized') ||
+        message.toLowerCase().includes('401') ||
+        message.toLowerCase().includes('403')
+      setHasPermissionError(isPermissionError)
+
       console.error('Background sync failed:', error)
     }
   }, [accessToken])
 
   const clearSyncError = useCallback(() => {
     setSyncError(null)
+    setHasPermissionError(false)
   }, [])
 
   return {
@@ -126,6 +145,7 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
     syncThoughtToDrive,
     isSyncing,
     syncError,
+    hasPermissionError,
     clearSyncError
   }
 }

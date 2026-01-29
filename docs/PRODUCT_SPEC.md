@@ -69,7 +69,7 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Background sync: Uploads new thoughts to Drive when signed in
    - Periodic sync: Pulls updates every 5 minutes
    - Visibility sync: Syncs when tab becomes active
-   - Visual indicator for pending sync status
+   - Visual indicator for pending sync status (blinking cloud emoji in header)
 
 6. **Automatic Session Persistence**
    - Uses authorization code flow with a Cloudflare Worker as token broker
@@ -226,12 +226,10 @@ The interface follows a fixed-status-bar layout to prevent visual jumping:
 
 **Structure:**
 ```
-Header (logo, actions, badges)
+Header (logo, actions, blinking cloud sync indicator)
   ↓
 Status Bar (fixed height)
   ├─ Update Prompt (PWA updates)
-  ├─ Save Indicator (last saved time / errors)
-  ├─ Sync Status (pending sync count)
   └─ Error Hint (auth/sync errors + reauth link)
   ↓
 Capture Container (50vh max height)

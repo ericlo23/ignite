@@ -40,6 +40,11 @@
   font-weight: 600;
 }
 
+.error-hint .indicator-icon {
+  font-size: 26px;
+  margin-right: 8px;
+}
+
 .status-item .indicator-text {
   font-weight: 500;
 }
@@ -88,6 +93,16 @@
 
 .error-hint a:hover {
   color: var(--accent-hover);
+}
+
+.error-hint-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.error-hint-link:hover {
+  background: rgba(255, 82, 82, 0.16);
 }
 
 /* Mobile optimizations */

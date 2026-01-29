@@ -1,29 +1,29 @@
 import { Link } from 'react-router-dom'
 
 interface ErrorHintProps {
-  authError: string | null
-  syncError: string | null
-  saveError: string | null
+  error: string | null
+  needsReauth: boolean
 }
 
-export function ErrorHint({ authError, syncError, saveError }: ErrorHintProps) {
-  const error = authError || syncError || saveError
-
+export function ErrorHint({ error, needsReauth }: ErrorHintProps) {
   if (!error) {
     return null
   }
 
-  return (
-    <div className="error-hint status-item">
+  const content = (
+    <>
       <span className="indicator-icon">!</span>
       <div className="indicator-text">
         <div className="error-message">{error}</div>
-        {(syncError || saveError) && (
-          <div className="reauth-link">
-            Having trouble? <Link to="/auth/reauthorize">Reauthorize Google Drive access</Link>
-          </div>
-        )}
       </div>
-    </div>
+    </>
+  )
+
+  return needsReauth ? (
+    <Link className="error-hint status-item error-hint-link" to="/auth/reauthorize">
+      {content}
+    </Link>
+  ) : (
+    <div className="error-hint status-item">{content}</div>
   )
 }

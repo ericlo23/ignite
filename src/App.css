@@ -77,6 +77,33 @@
   text-align: center;
 }
 
+.sync-cloud {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  border-radius: 8px;
+  animation: cloud-fade 1.6s ease-in-out infinite;
+}
+
+@keyframes cloud-fade {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-cloud {
+    animation: none;
+  }
+}
+
 .review-button {
   background: transparent;
   border: 1px solid var(--text-secondary);

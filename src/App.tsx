@@ -2,9 +2,8 @@ import { useEffect, useState, lazy, Suspense } from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
 import { useGoogleAuth } from './hooks/useGoogleAuth'
 import { useGoogleDrive } from './hooks/useGoogleDrive'
-import { saveThought, getSyncStats } from './services/storage'
+import { useThoughtStorage } from './hooks/useThoughtStorage'
 import { ThoughtInput } from './components/ThoughtInput'
-import { SaveIndicator } from './components/SaveIndicator'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { ErrorHint } from './components/ErrorHint'
 import { AuthCallback } from './pages/AuthCallback'
@@ -19,40 +18,22 @@ const ReviewPage = lazy(() => import('./pages/ReviewPage').then(module => ({ def
 
 function App() {
   const { isSignedIn, isLoading, error: authError, accessToken, signIn, signOut } = useGoogleAuth()
-  const { pullAndMerge, syncThoughtToDrive, isSyncing, syncError, clearSyncError } = useGoogleDrive(accessToken)
+  const { pullAndMerge, syncThoughtToDrive, isSyncing, syncError, hasPermissionError: hasSyncPermissionError, clearSyncError } = useGoogleDrive(accessToken)
+  const { saveThought, isSaving, saveError, syncStats, updateSyncStats, clearSaveError } = useThoughtStorage()
 
-  const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [syncStats, setSyncStats] = useState({ total: 0, synced: 0, unsynced: 0 })
   const [isOnline] = useState(navigator.onLine)
-
-  // Update sync stats periodically
-  const updateSyncStats = async () => {
-    const stats = await getSyncStats()
-    setSyncStats(stats)
-  }
-
-  // Initial sync stats load
-  useEffect(() => {
-    updateSyncStats()
-  }, [])
 
   // Auto-sync on app start and periodically when signed in
   useEffect(() => {
     if (!isSignedIn || !accessToken) return
 
     // Initial sync on mount
-    pullAndMerge()
-      .then(() => updateSyncStats())
-      .catch(console.error)
+    pullAndMerge().then(() => updateSyncStats())
 
     // Periodic sync every 5 minutes
     const interval = setInterval(() => {
       if (navigator.onLine) {
-        pullAndMerge()
-          .then(() => updateSyncStats())
-          .catch(console.error)
+        pullAndMerge().then(() => updateSyncStats())
       }
     }, 5 * 60 * 1000)
 
@@ -63,9 +44,7 @@ function App() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isSignedIn && navigator.onLine) {
-        pullAndMerge()
-          .then(() => updateSyncStats())
-          .catch(console.error)
+        pullAndMerge().then(() => updateSyncStats())
       }
     }
 
@@ -76,14 +55,9 @@ function App() {
   const handleSave = async (thought: string): Promise<boolean> => {
     if (!thought.trim()) return false
 
-    setIsSaving(true)
-    setSaveError(null)
-
     try {
-      // Always save locally first
+      // Save locally first
       const id = await saveThought(thought.trim())
-      setLastSaved(new Date())
-      await updateSyncStats()
 
       // Background sync to Drive if signed in and online
       if (isSignedIn && isOnline) {
@@ -95,12 +69,14 @@ function App() {
 
       return true
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save'
-      setSaveError(message)
       return false
-    } finally {
-      setIsSaving(false)
     }
+  }
+
+  const handleSignOut = () => {
+    signOut()
+    clearSaveError()
+    clearSyncError()
   }
 
   return (
@@ -130,15 +106,19 @@ function App() {
                 <div className="header-actions">
                   {!isOnline && <span className="offline-badge">Offline</span>}
                   {syncStats.unsynced > 0 && isSignedIn && (
-                    <span className="pending-badge" title="Thoughts pending sync">
-                      {syncStats.unsynced}
+                    <span
+                      className="sync-cloud"
+                      title={`Syncing ${syncStats.unsynced} thought${syncStats.unsynced === 1 ? '' : 's'}...`}
+                      aria-label={`Syncing ${syncStats.unsynced} thought${syncStats.unsynced === 1 ? '' : 's'}...`}
+                    >
+                      ☁️
                     </span>
                   )}
                   <Link to="/review" className="review-button">
                     Review
                   </Link>
                   {isSignedIn ? (
-                    <button onClick={signOut} className="auth-button">
+                    <button onClick={handleSignOut} className="auth-button">
                       Sign Out
                     </button>
                   ) : (
@@ -153,18 +133,9 @@ function App() {
                 {/* Fixed status bar */}
                 <div className="status-bar">
                   <UpdatePrompt />
-                  <SaveIndicator
-                    lastSaved={lastSaved}
-                    error={saveError || syncError}
-                    onDismissError={() => {
-                      setSaveError(null)
-                      clearSyncError()
-                    }}
-                  />
                   <ErrorHint
-                    authError={authError}
-                    syncError={syncError}
-                    saveError={saveError}
+                    error={authError || syncError || saveError}
+                    needsReauth={Boolean(authError) || hasSyncPermissionError}
                   />
                 </div>
 
