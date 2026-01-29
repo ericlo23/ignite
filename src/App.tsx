@@ -93,7 +93,7 @@ function App() {
                 </h1>
                 <div className="header-actions">
                   {!isOnline && <span className="offline-badge">Offline</span>}
-                  {syncStats.unsynced > 0 && isSignedIn && (
+                  {syncStats.unsynced > 0 && isSignedIn && !hasSyncPermissionError && (
                     <span
                       className="sync-cloud"
                       title={`Syncing ${syncStats.unsynced} thought${syncStats.unsynced === 1 ? '' : 's'}...`}
