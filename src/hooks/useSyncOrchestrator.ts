@@ -34,6 +34,10 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
   const driveHook = useGoogleDrive(accessToken)
   const storageHook = useThoughtStorage()
 
+  // Destructure functions to avoid object reference changes triggering re-renders
+  const { fetchFileContent, parseThoughts, uploadThoughts, appendThought } = driveHook
+  const { mergeFromDrive, getUnsynced, markAllSynced, markSynced, updateSyncStats, saveThought: saveThoughtToStorage, isSaving, lastSaved, syncStats } = storageHook
+
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [hasPermissionError, setHasPermissionError] = useState(false)
@@ -55,21 +59,21 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
 
     try {
       // 1. Fetch from Drive
-      const content = await driveHook.fetchFileContent()
+      const content = await fetchFileContent()
 
       // 2. Parse to entries
-      const driveThoughts = driveHook.parseThoughts(content)
+      const driveThoughts = parseThoughts(content)
 
       // 3. Merge into local storage
-      await storageHook.mergeFromDrive(driveThoughts)
+      await mergeFromDrive(driveThoughts)
 
       // 4. Get unsynced local thoughts
-      const unsynced = await storageHook.getUnsynced()
+      const unsynced = await getUnsynced()
 
       if (unsynced.length > 0) {
         // 5. Re-fetch to ensure we have latest
-        const currentContent = await driveHook.fetchFileContent()
-        const existingThoughts = driveHook.parseThoughts(currentContent)
+        const currentContent = await fetchFileContent()
+        const existingThoughts = parseThoughts(currentContent)
 
         // 6. Merge with unsynced
         const allThoughts = [...existingThoughts, ...unsynced]
@@ -80,14 +84,14 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
         )
 
         // 8. Upload to Drive
-        await driveHook.uploadThoughts(uniqueThoughts)
+        await uploadThoughts(uniqueThoughts)
 
         // 9. Mark all as synced
-        await storageHook.markAllSynced(unsynced.map(t => t.id))
+        await markAllSynced(unsynced.map(t => t.id))
       }
 
       // 10. Ensure stats are up-to-date after sync completes
-      await storageHook.updateSyncStats()
+      await updateSyncStats()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sync failed'
       setSyncError(message)
@@ -95,7 +99,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     } finally {
       setIsSyncing(false)
     }
-  }, [accessToken, driveHook, storageHook])
+  }, [accessToken, fetchFileContent, parseThoughts, mergeFromDrive, getUnsynced, uploadThoughts, markAllSynced, updateSyncStats])
 
   /**
    * Internal: Sync a single thought to Drive (append operation)
@@ -105,16 +109,16 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     if (!accessToken) return
 
     try {
-      await driveHook.appendThought(thought, id)
-      await storageHook.markSynced(id)
-      await storageHook.updateSyncStats()
+      await appendThought(thought, id)
+      await markSynced(id)
+      await updateSyncStats()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Background sync failed'
       setSyncError(message)
       setHasPermissionError(isPermissionError(error))
       console.error('Background sync failed:', error)
     }
-  }, [accessToken, driveHook, storageHook])
+  }, [accessToken, appendThought, markSynced, updateSyncStats])
 
   /**
    * Save thought locally and sync to Drive if online
@@ -125,7 +129,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
 
     try {
       // Save locally first (now throws on error)
-      const id = await storageHook.saveThought(thought.trim())
+      const id = await saveThoughtToStorage(thought.trim())
 
       // Clear any previous save errors
       setSaveError(null)
@@ -142,7 +146,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
       setSaveError(message)
       return false
     }
-  }, [accessToken, isOnline, storageHook, syncThoughtToDrive])
+  }, [accessToken, isOnline, saveThoughtToStorage, syncThoughtToDrive])
 
   const clearSaveError = useCallback(() => {
     setSaveError(null)
@@ -158,15 +162,15 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     saveThought,
     pullAndMerge,
     // State
-    isSaving: storageHook.isSaving,
+    isSaving,
     isSyncing,
-    lastSaved: storageHook.lastSaved,
-    saveError: saveError,
+    lastSaved,
+    saveError,
     syncError,
-    syncStats: storageHook.syncStats,
-    hasPermissionError: hasPermissionError,
+    syncStats,
+    hasPermissionError,
     // Actions
-    clearSaveError: clearSaveError,
+    clearSaveError,
     clearSyncError
   }
 }
