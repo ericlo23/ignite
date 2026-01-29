@@ -66,6 +66,11 @@ function App() {
     clearSyncError()
   }
 
+  const handleReauthorize = () => {
+    clearSaveError()
+    clearSyncError()
+  }
+
   return (
     <Suspense fallback={
       <div className="app loading">
@@ -123,6 +128,7 @@ function App() {
                   <ErrorHint
                     error={authError || syncError || saveError}
                     needsReauth={Boolean(authError) || hasSyncPermissionError}
+                    onReauthorize={handleReauthorize}
                   />
                 </div>
 

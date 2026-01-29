@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 interface ErrorHintProps {
   error: string | null
   needsReauth: boolean
+  onReauthorize?: () => void
 }
 
-export function ErrorHint({ error, needsReauth }: ErrorHintProps) {
+export function ErrorHint({ error, needsReauth, onReauthorize }: ErrorHintProps) {
   if (!error) {
     return null
   }
@@ -20,7 +21,11 @@ export function ErrorHint({ error, needsReauth }: ErrorHintProps) {
   )
 
   return needsReauth ? (
-    <Link className="error-hint status-item error-hint-link" to="/auth/reauthorize">
+    <Link
+      className="error-hint status-item error-hint-link"
+      to="/auth/reauthorize"
+      onClick={onReauthorize}
+    >
       {content}
     </Link>
   ) : (
