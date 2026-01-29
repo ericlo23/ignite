@@ -56,6 +56,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
 
     setIsSyncing(true)
     setSyncError(null)
+    setHasPermissionError(false)
 
     try {
       // 1. Fetch from Drive
