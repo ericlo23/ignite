@@ -24,7 +24,7 @@ export function UpdatePrompt() {
   }
 
   return (
-    <div className="update-prompt">
+    <div className="update-prompt status-item">
       <span className="update-text">New version available</span>
       <div className="update-actions">
         <button

@@ -13,6 +13,7 @@ export function parseThoughts(markdown: string): ParsedThought[] {
 
   let currentDate: string | null = null
   let currentTime: string | null = null
+  let currentTimestampMs: number | null = null
   let currentContent: string[] = []
   let captureContent = false
 
@@ -21,7 +22,11 @@ export function parseThoughts(markdown: string): ParsedThought[] {
       const content = currentContent.join('\n').trim()
       if (content) {
         try {
-          const timestamp = parseTimestamp(currentDate, currentTime)
+          // Use precise timestamp if available, otherwise parse from date/time
+          const timestamp = currentTimestampMs
+            ? new Date(currentTimestampMs)
+            : parseTimestamp(currentDate, currentTime)
+
           thoughts.push({
             id: `${currentDate}-${currentTime}`,
             date: currentDate,
@@ -35,6 +40,7 @@ export function parseThoughts(markdown: string): ParsedThought[] {
       }
     }
     currentContent = []
+    currentTimestampMs = null
     captureContent = false
   }
 
@@ -48,10 +54,24 @@ export function parseThoughts(markdown: string): ParsedThought[] {
       continue
     }
 
-    // Time header: ## HH:MM AM/PM
+    // Time header: ## HH:MM AM/PM <!-- timestamp -->
     if (trimmedLine.startsWith('## ')) {
       finishThought()
-      currentTime = trimmedLine.substring(3).trim()
+
+      // Extract time and optional timestamp
+      const timeHeader = trimmedLine.substring(3).trim()
+
+      // Check for timestamp in HTML comment
+      const timestampMatch = timeHeader.match(/<!--\s*(\d+)\s*-->/)
+      if (timestampMatch) {
+        currentTimestampMs = parseInt(timestampMatch[1], 10)
+        // Remove the comment from the time string
+        currentTime = timeHeader.replace(/\s*<!--\s*\d+\s*-->/, '').trim()
+      } else {
+        currentTime = timeHeader
+        currentTimestampMs = null
+      }
+
       captureContent = true
       continue
     }

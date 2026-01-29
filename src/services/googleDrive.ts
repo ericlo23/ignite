@@ -1,6 +1,7 @@
-import { formatThoughtEntry, getInitialContent } from '../utils/markdown'
+import { formatThoughtEntry, getInitialContent, generateMarkdown } from '../utils/markdown'
 import { parseThoughts } from '../utils/thoughtParser'
 import type { ParsedThought } from '../types'
+import type { ThoughtEntry } from './storage'
 
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD_API_BASE = 'https://www.googleapis.com/upload/drive/v3'
@@ -145,13 +146,14 @@ export async function getFileContent(
 export async function appendThought(
   accessToken: string,
   fileId: string,
-  thought: string
+  thought: string,
+  timestamp: number
 ): Promise<void> {
   // Get current content
   const currentContent = await getFileContent(accessToken, fileId)
 
-  // Format and append new entry
-  const newEntry = formatThoughtEntry(thought, currentContent)
+  // Format and append new entry with precise timestamp
+  const newEntry = formatThoughtEntry(thought, currentContent, timestamp)
   const updatedContent = currentContent + newEntry
 
   // Update file
@@ -186,4 +188,50 @@ export async function getAllThoughts(accessToken: string): Promise<ParsedThought
  */
 export function clearFileCache(): void {
   localStorage.removeItem(FILE_ID_KEY)
+}
+
+/**
+ * Parse Drive file content into ThoughtEntry format
+ * Converts ParsedThought to ThoughtEntry with timestamp-based IDs
+ */
+export function parseThoughtsToEntries(content: string): ThoughtEntry[] {
+  const parsed = parseThoughts(content)
+
+  return parsed.map(thought => ({
+    id: thought.timestamp.getTime(),
+    thought: thought.content,
+    timestamp: thought.timestamp.getTime(),
+    syncedToDrive: true,
+    lastModified: thought.timestamp.getTime()
+  }))
+}
+
+/**
+ * Upload complete thought list to Drive (replaces file content)
+ * Used for bulk sync operations
+ */
+export async function uploadThoughts(
+  accessToken: string,
+  fileId: string,
+  thoughts: ThoughtEntry[]
+): Promise<void> {
+  // Generate markdown from thoughts
+  const markdown = generateMarkdown(thoughts)
+
+  // Upload to Drive
+  const response = await fetch(
+    `${UPLOAD_API_BASE}/files/${fileId}?uploadType=media`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'text/markdown'
+      },
+      body: markdown
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(await buildDriveError(response, 'Failed to upload thoughts'))
+  }
 }

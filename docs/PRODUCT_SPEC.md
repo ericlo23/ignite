@@ -14,12 +14,13 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
 
 ## Value Proposition
 
-| Value                 | Description                                    |
-| --------------------- | ---------------------------------------------- |
-| **Instant Capture**   | Ideas are fleeting - record them in seconds    |
-| **Minimal Interface** | Zero barriers, pure focus on content           |
-| **Cloud Sync**        | Saved to Google Drive, accessible anywhere     |
-| **Offline Ready**     | Works without internet, syncs when reconnected |
+| Value                 | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| **Instant Capture**   | Ideas are fleeting - record them in seconds       |
+| **Minimal Interface** | Zero barriers, pure focus on content              |
+| **Local-First**       | Works without sign-in, all data stored locally    |
+| **Optional Sync**     | Sign in to sync across devices via Google Drive   |
+| **Offline Ready**     | Works without internet, syncs when reconnected    |
 
 ## Target Users
 
@@ -44,22 +45,33 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Supports native keyboard voice input
    - Clean, distraction-free interface
 
-2. **Google Drive Sync**
+2. **Local-First Storage**
+   - All thoughts stored locally in IndexedDB
+   - No sign-in required for core functionality
+   - Instant saves with no network dependency
+   - Review thoughts offline anytime
+
+3. **Optional Multi-Device Sync**
+   - Sign in with Google to enable cross-device sync
+   - Automatic bidirectional sync with Google Drive
    - Stores thoughts in a single Markdown file (`ignite-thoughts.md`)
    - Automatic timestamps for each entry
    - Entries organized by date
+   - Conflict resolution based on timestamp deduplication
 
-3. **PWA Capabilities**
+4. **PWA Capabilities**
    - Installable on mobile home screen
-   - Works offline
+   - Works completely offline
    - Auto-updates in background
 
-4. **Offline Support**
-   - Queue entries when offline
-   - Automatic sync when connection restored
-   - Visual indicator for pending entries
+5. **Intelligent Sync**
+   - Startup sync: Auto-merges Drive content with local on app open
+   - Background sync: Uploads new thoughts to Drive when signed in
+   - Periodic sync: Pulls updates every 5 minutes
+   - Visibility sync: Syncs when tab becomes active
+   - Visual indicator for pending sync status
 
-5. **Automatic Session Persistence**
+6. **Automatic Session Persistence**
    - Uses authorization code flow with a Cloudflare Worker as token broker
    - Refresh tokens stored server-side in KV — no client secret exposed
    - Silently refreshes access token via Worker before expiry (5-minute buffer)
@@ -70,24 +82,33 @@ A zero-friction thought capture tool that lets you record ideas the moment they 
    - Provides a reauthorization help page explaining the Drive permission checkbox
    - Verifies granted scopes after login and redirects to reauthorize if Drive access is missing
 
-6. **Thought Review**
-   - View all captured thoughts in reverse chronological order
+7. **Thought Review**
+   - View all captured thoughts from IndexedDB (fast, offline-capable)
    - Thoughts grouped by date with individual timestamps
-   - Displays both synced (Drive) and pending (offline) thoughts
+   - Visual badges indicate sync status ("Not synced" for pending)
    - Clean, readable interface following fire theme
    - Navigate via Review button in header
+   - No sign-in required to review local thoughts
 
-### User Flow
+### User Flow (Local-First)
 
 ```
-Open App → (Sign in if needed) → Type thought → Save → Done
+Open App → Type thought → Save (instant) → Done
+```
+
+Optional: Sign in to enable multi-device sync
+
+```
+Open App → Sign In → Auto-sync from Drive → Type thought → Save (local + cloud) → Done
 ```
 
 ### Review Flow
 
 ```
-Open App → Review Thoughts → Browse by date → Return to Capture
+Open App → Review Thoughts (from local IndexedDB) → Browse by date → Return to Capture
 ```
+
+Works offline, no sign-in required
 
 ## Technical Architecture
 
@@ -97,31 +118,68 @@ Open App → Review Thoughts → Browse by date → Return to Capture
 - **Build Tool**: Vite
 - **Auth Backend**: Cloudflare Worker (token broker)
 - **PWA**: vite-plugin-pwa (Workbox)
-- **Storage**: Google Drive API
-- **Offline**: IndexedDB (idb)
-- **Thought Parser**: Utility for extracting structured thoughts from markdown
-- **useThoughts Hook**: Hook for thought retrieval and merging Drive + offline sources
-- **ReviewPage**: Component displaying all thoughts with date grouping
+- **Primary Storage**: IndexedDB (idb) - local-first, all thoughts stored here
+- **Sync Storage**: Google Drive API - optional backup/sync for multi-device
+- **Thought Parser**: Utility for parsing markdown ↔ ThoughtEntry conversion
+- **Storage Service**: Core data layer with save, merge, and sync functions
+- **useGoogleDrive Hook**: Hook for Drive sync operations (pullAndMerge, syncThoughtToDrive)
+- **ReviewPage**: Component reading directly from IndexedDB for fast offline access
+
+### Architecture: Local-First with Optional Sync
+
+**Three-Layer Pattern:**
+
+1. **Storage Layer** (`src/services/storage.ts`)
+   - IndexedDB as single source of truth
+   - Schema: `thoughts` store with timestamp-based IDs
+   - Functions: `saveThought()`, `getAllThoughts()`, `mergeThoughtsFromDrive()`
+   - Sync tracking via `syncedToDrive` boolean flag
+
+2. **Sync Layer** (`src/services/googleDrive.ts` + `src/hooks/useGoogleDrive.ts`)
+   - `pullAndMerge()`: Download from Drive → merge to local → upload pending
+   - `syncThoughtToDrive()`: Single thought background upload
+   - Conflict resolution: timestamp-based deduplication, lastModified comparison
+
+3. **UI Layer** (`src/App.tsx`, `src/pages/ReviewPage.tsx`)
+   - App: Always saves to IndexedDB first, backgrounds sync if signed in
+   - Review: Reads only from IndexedDB (fast, offline-capable)
+   - Sync hints guide users to optional sign-in for multi-device
+
+**Data Flow:**
+
+```
+User Input → saveThought(local) → updateUI → [if signed in] syncThoughtToDrive(bg)
+
+App Start → [if signed in] pullAndMerge() → merge Drive + local → mark synced
+
+Review → getAllThoughts(local) → display with sync badges
+```
 
 ### Data Format
 
-Thoughts are stored as Markdown in Google Drive:
+Thoughts are stored as Markdown in Google Drive with millisecond-precision timestamps:
 
 ```markdown
 # 2026-01-26
 
-## 09:15 AM
+## 09:15 AM <!-- 1738156523456 -->
 
 First thought of the day captured here.
 
 ---
 
-## 02:30 PM
+## 02:30 PM <!-- 1738163423789 -->
 
 Another idea that came to mind.
 
 ---
 ```
+
+The HTML comment contains the precise millisecond timestamp, ensuring:
+- Exact timestamp preservation during sync (no precision loss)
+- Reliable deduplication by timestamp
+- Backward compatibility (old format without timestamp still parseable)
+- Human readability maintained (comment is invisible in markdown viewers)
 
 ## Visual Design
 
@@ -161,3 +219,37 @@ The **Fire & Flame** color scheme directly connects to the product name "Ignite"
 - **Amber Success**: Instead of traditional green, amber represents "spark caught" or "flame sustained"
 
 This theme creates emotional resonance with the act of capturing fleeting thoughts - like catching sparks before they fade.
+
+### UI Layout
+
+The interface follows a fixed-status-bar layout to prevent visual jumping:
+
+**Structure:**
+```
+Header (logo, actions, badges)
+  ↓
+Status Bar (fixed height)
+  ├─ Update Prompt (PWA updates)
+  ├─ Save Indicator (last saved time / errors)
+  ├─ Sync Status (pending sync count)
+  └─ Error Hint (auth/sync errors + reauth link)
+  ↓
+Capture Container (50vh max height)
+  └─ Thought Input (textarea + save button)
+  ↓
+Footer (privacy links)
+```
+
+**Design Goals:**
+- **No Layout Shift**: Status bar maintains fixed height (60-180px), preventing textarea from jumping when status messages appear
+- **Constrained Input**: Textarea limited to ~50% of viewport height (50vh desktop, 40vh mobile), leaving room for status
+- **Unified Status Area**: All transient messages (updates, saves, errors, sync) appear in a single scrollable region
+- **Always Visible**: Status bar never disappears, ensuring consistent layout even when empty
+
+**Status Bar Behavior:**
+- Min height: 60px (ensures presence even when empty)
+- Max height: 180px (prevents overwhelming the interface)
+- Overflow: Auto-scroll when multiple statuses appear
+- Animation: Smooth fade-in when status items appear/disappear
+
+This layout ensures the thought capture experience remains stable and predictable, regardless of sync status or system messages.

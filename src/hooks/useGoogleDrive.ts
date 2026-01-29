@@ -2,35 +2,103 @@ import { useState, useCallback, useRef } from 'react'
 import {
   findOrCreateThoughtsFile,
   appendThought,
-  clearFileCache
+  clearFileCache,
+  getFileContent,
+  uploadThoughts as uploadThoughtsToAPI,
+  parseThoughtsToEntries
 } from '../services/googleDrive'
+import {
+  mergeThoughtsFromDrive,
+  markSyncedToDrive,
+  getUnsyncedThoughts
+} from '../services/storage'
 
 interface UseGoogleDriveReturn {
-  saveThought: (thought: string) => Promise<boolean>
-  isSaving: boolean
-  lastSaved: Date | null
-  error: string | null
-  clearError: () => void
+  pullAndMerge: () => Promise<void>
+  syncThoughtToDrive: (id: number, thought: string) => Promise<void>
+  isSyncing: boolean
+  syncError: string | null
+  clearSyncError: () => void
 }
 
 export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn {
-  const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const fileIdRef = useRef<string | null>(null)
 
-  const saveThought = useCallback(async (thought: string): Promise<boolean> => {
+  /**
+   * Pull thoughts from Drive and merge with local
+   * Then upload any unsynced local thoughts
+   */
+  const pullAndMerge = useCallback(async (): Promise<void> => {
     if (!accessToken) {
-      setError('Not authenticated')
-      return false
+      setSyncError('Not authenticated')
+      return
     }
 
-    if (!thought.trim()) {
-      return false
-    }
+    setIsSyncing(true)
+    setSyncError(null)
 
-    setIsSaving(true)
-    setError(null)
+    try {
+      // 1. Get or create file ID
+      if (!fileIdRef.current) {
+        fileIdRef.current = await findOrCreateThoughtsFile(accessToken)
+      }
+
+      // 2. Get file content from Drive
+      const content = await getFileContent(accessToken, fileIdRef.current)
+
+      // 3. Parse markdown to thought entries
+      const driveThoughts = parseThoughtsToEntries(content)
+
+      // 4. Merge into IndexedDB (dedup by timestamp)
+      await mergeThoughtsFromDrive(driveThoughts)
+
+      // 5. Upload unsynced local thoughts back to Drive
+      const unsynced = await getUnsyncedThoughts()
+      if (unsynced.length > 0) {
+        // Get current content again to append to
+        const currentContent = await getFileContent(accessToken, fileIdRef.current)
+        const existingThoughts = parseThoughtsToEntries(currentContent)
+
+        // Merge local unsynced with Drive thoughts
+        const allThoughts = [...existingThoughts, ...unsynced]
+
+        // Remove duplicates by timestamp
+        const uniqueThoughts = Array.from(
+          new Map(allThoughts.map(t => [t.id, t])).values()
+        )
+
+        // Upload complete set
+        await uploadThoughtsToAPI(accessToken, fileIdRef.current, uniqueThoughts)
+
+        // Mark all as synced
+        for (const t of unsynced) {
+          await markSyncedToDrive(t.id)
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sync failed'
+      setSyncError(message)
+
+      // If file not found, clear cache
+      if (message.includes('not found') || message.includes('404')) {
+        fileIdRef.current = null
+        clearFileCache()
+      }
+
+      throw err
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [accessToken])
+
+  /**
+   * Sync a single thought to Drive (append operation)
+   * Fails silently for background sync, will retry on next pullAndMerge
+   */
+  const syncThoughtToDrive = useCallback(async (id: number, thought: string): Promise<void> => {
+    if (!accessToken) return
 
     try {
       // Get or create file ID
@@ -38,36 +106,26 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
         fileIdRef.current = await findOrCreateThoughtsFile(accessToken)
       }
 
-      // Append thought to file
-      await appendThought(accessToken, fileIdRef.current, thought.trim())
+      // Append thought to file with precise timestamp (id is the timestamp)
+      await appendThought(accessToken, fileIdRef.current, thought, id)
 
-      setLastSaved(new Date())
-      return true
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save'
-      setError(message)
-
-      // If file not found, clear cache and try again next time
-      if (message.includes('not found') || message.includes('404')) {
-        fileIdRef.current = null
-        clearFileCache()
-      }
-
-      return false
-    } finally {
-      setIsSaving(false)
+      // Mark as synced
+      await markSyncedToDrive(id)
+    } catch (error) {
+      // Fails silently for background sync
+      console.error('Background sync failed:', error)
     }
   }, [accessToken])
 
-  const clearError = useCallback(() => {
-    setError(null)
+  const clearSyncError = useCallback(() => {
+    setSyncError(null)
   }, [])
 
   return {
-    saveThought,
-    isSaving,
-    lastSaved,
-    error,
-    clearError
+    pullAndMerge,
+    syncThoughtToDrive,
+    isSyncing,
+    syncError,
+    clearSyncError
   }
 }

@@ -17,13 +17,8 @@ export interface WorkerRefreshResponse {
   scope?: string
 }
 
-// App types
-export interface ThoughtEntry {
-  id: number
-  thought: string
-  timestamp: number
-  synced: boolean
-}
+// App types - now imported from storage.ts
+export type { ThoughtEntry } from '../services/storage'
 
 export interface AuthState {
   isSignedIn: boolean

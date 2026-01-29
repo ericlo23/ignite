@@ -1,18 +1,56 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useGoogleAuth } from '../hooks/useGoogleAuth'
-import { useThoughts } from '../hooks/useThoughts'
+import { getAllThoughts } from '../services/storage'
+import { formatDate, formatTime } from '../utils/markdown'
 import './ReviewPage.css'
 
+interface DisplayThought {
+  id: string
+  date: string
+  time: string
+  content: string
+  timestamp: number
+  syncedToDrive: boolean
+}
+
 export function ReviewPage() {
-  const { accessToken } = useGoogleAuth()
-  const { thoughts, isLoading, error, loadThoughts } = useThoughts(accessToken)
+  const [thoughts, setThoughts] = useState<DisplayThought[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (accessToken) {
-      loadThoughts()
+    loadLocalThoughts()
+  }, [])
+
+  async function loadLocalThoughts() {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const entries = await getAllThoughts()
+
+      // Transform to display format
+      const parsed: DisplayThought[] = entries.map(entry => ({
+        id: `${entry.timestamp}`,
+        date: formatDate(new Date(entry.timestamp)),
+        time: formatTime(new Date(entry.timestamp)),
+        content: entry.thought,
+        timestamp: entry.timestamp,
+        syncedToDrive: entry.syncedToDrive
+      }))
+
+      // Deduplicate by timestamp (millisecond precision)
+      const uniqueThoughts = Array.from(
+        new Map(parsed.map(t => [t.timestamp, t])).values()
+      )
+
+      setThoughts(uniqueThoughts)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load thoughts')
+    } finally {
+      setIsLoading(false)
     }
-  }, [accessToken, loadThoughts])
+  }
 
   if (isLoading) {
     return (
@@ -30,7 +68,7 @@ export function ReviewPage() {
         </header>
         <div className="error-state">
           <p className="error-message">{error}</p>
-          <button onClick={loadThoughts} className="retry-button">
+          <button onClick={loadLocalThoughts} className="retry-button">
             Retry
           </button>
         </div>
@@ -75,8 +113,8 @@ export function ReviewPage() {
                 <article key={thought.id} className="thought-card">
                   <div className="thought-header">
                     <time className="thought-time">{thought.time}</time>
-                    {thought.isPending && (
-                      <span className="pending-badge">Pending sync</span>
+                    {!thought.syncedToDrive && (
+                      <span className="pending-badge">Not synced</span>
                     )}
                   </div>
                   <p className="thought-content">{thought.content}</p>

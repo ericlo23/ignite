@@ -1,13 +1,14 @@
 /**
  * Format a thought entry with timestamp for the markdown file
  */
-export function formatThoughtEntry(thought: string, existingContent: string): string {
-  const now = new Date()
+export function formatThoughtEntry(thought: string, existingContent: string, timestamp?: number): string {
+  const now = new Date(timestamp || Date.now())
   const dateStr = formatDate(now)
   const timeStr = formatTime(now)
+  const tsMs = now.getTime()
 
   const todayHeader = `# ${dateStr}`
-  const timeEntry = `## ${timeStr}\n\n${thought}\n\n---\n\n`
+  const timeEntry = `## ${timeStr} <!-- ${tsMs} -->\n\n${thought}\n\n---\n\n`
 
   // Check if today's date section already exists
   if (existingContent.includes(todayHeader)) {
@@ -48,4 +49,37 @@ export function formatTime(date: Date): string {
  */
 export function getInitialContent(): string {
   return ''
+}
+
+/**
+ * Generate markdown content from array of thought entries
+ * Used for full Drive file uploads
+ */
+export function generateMarkdown(
+  thoughts: Array<{ timestamp: number; thought: string }>
+): string {
+  // Sort by timestamp (oldest first for chronological order in file)
+  const sorted = [...thoughts].sort((a, b) => a.timestamp - b.timestamp)
+
+  let markdown = ''
+  let currentDate = ''
+
+  for (const thought of sorted) {
+    const date = new Date(thought.timestamp)
+    const dateStr = formatDate(date)
+    const timeStr = formatTime(date)
+    const tsMs = thought.timestamp
+
+    // Add date header if changed
+    if (dateStr !== currentDate) {
+      if (markdown) markdown += '\n'
+      markdown += `# ${dateStr}\n\n`
+      currentDate = dateStr
+    }
+
+    // Add time and content with millisecond timestamp
+    markdown += `## ${timeStr} <!-- ${tsMs} -->\n\n${thought.thought}\n\n---\n\n`
+  }
+
+  return markdown
 }

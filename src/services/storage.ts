@@ -1,11 +1,20 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
-import type { ThoughtEntry } from '../types'
+
+export interface ThoughtEntry {
+  id: number              // Date.now() - creation timestamp
+  thought: string         // content
+  timestamp: number       // same as id, for indexing
+  syncedToDrive: boolean  // whether backed up to Drive
+  lastModified: number    // for conflict resolution
+}
 
 interface IgniteDB extends DBSchema {
-  pendingEntries: {
+  thoughts: {
     key: number
     value: ThoughtEntry
-    indexes: { 'by-timestamp': number }
+    indexes: {
+      'by-timestamp': number
+    }
   }
 }
 
@@ -18,7 +27,7 @@ function getDB(): Promise<IDBPDatabase<IgniteDB>> {
   if (!dbPromise) {
     dbPromise = openDB<IgniteDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        const store = db.createObjectStore('pendingEntries', {
+        const store = db.createObjectStore('thoughts', {
           keyPath: 'id'
         })
         store.createIndex('by-timestamp', 'timestamp')
@@ -29,48 +38,119 @@ function getDB(): Promise<IDBPDatabase<IgniteDB>> {
 }
 
 /**
- * Queue a thought for offline storage
+ * Save a thought to local storage - primary save function
+ * Always succeeds locally, returns timestamp ID
  */
-export async function queueOfflineEntry(thought: string): Promise<number> {
+export async function saveThought(thought: string): Promise<number> {
   const db = await getDB()
   const id = Date.now()
-  await db.add('pendingEntries', {
+  const entry: ThoughtEntry = {
     id,
     thought,
     timestamp: id,
-    synced: false
-  })
+    syncedToDrive: false,
+    lastModified: id
+  }
+  await db.add('thoughts', entry)
   return id
 }
 
 /**
- * Get all pending (unsynced) entries
+ * Get all thoughts for Review page
+ * Returns sorted by timestamp (newest first)
  */
-export async function getPendingEntries(): Promise<ThoughtEntry[]> {
+export async function getAllThoughts(): Promise<ThoughtEntry[]> {
   const db = await getDB()
-  return db.getAllFromIndex('pendingEntries', 'by-timestamp')
+  const thoughts = await db.getAllFromIndex('thoughts', 'by-timestamp')
+  // Sort newest first
+  return thoughts.sort((a, b) => b.timestamp - a.timestamp)
 }
 
 /**
- * Get count of pending entries
+ * Get unsynced thoughts for background upload
  */
-export async function getPendingCount(): Promise<number> {
+export async function getUnsyncedThoughts(): Promise<ThoughtEntry[]> {
   const db = await getDB()
-  return db.count('pendingEntries')
+  const tx = db.transaction('thoughts', 'readonly')
+  const store = tx.objectStore('thoughts')
+  const all = await store.getAll()
+  await tx.done
+
+  // Filter for unsynced thoughts
+  return all.filter(thought => !thought.syncedToDrive)
 }
 
 /**
- * Mark an entry as synced (delete it from pending)
+ * Mark a thought as synced to Drive after successful upload
  */
-export async function markEntrySynced(id: number): Promise<void> {
+export async function markSyncedToDrive(id: number): Promise<void> {
   const db = await getDB()
-  await db.delete('pendingEntries', id)
+  const tx = db.transaction('thoughts', 'readwrite')
+  const store = tx.objectStore('thoughts')
+  const entry = await store.get(id)
+
+  if (entry) {
+    entry.syncedToDrive = true
+    entry.lastModified = Date.now()
+    await store.put(entry)
+  }
+
+  await tx.done
 }
 
 /**
- * Clear all pending entries
+ * Merge thoughts from Drive, deduplicating by timestamp
  */
-export async function clearPendingEntries(): Promise<void> {
+export async function mergeThoughtsFromDrive(
+  driveThoughts: ThoughtEntry[]
+): Promise<void> {
   const db = await getDB()
-  await db.clear('pendingEntries')
+  const tx = db.transaction('thoughts', 'readwrite')
+  const store = tx.objectStore('thoughts')
+
+  for (const driveThought of driveThoughts) {
+    // Check if exists locally by exact ID (millisecond precision)
+    const existing = await store.get(driveThought.id)
+
+    if (!existing) {
+      // New from Drive, insert
+      await store.add({
+        ...driveThought,
+        syncedToDrive: true
+      })
+    } else {
+      // Exists, compare lastModified
+      if (driveThought.lastModified > existing.lastModified) {
+        // Drive is newer, update local
+        await store.put({
+          ...driveThought,
+          syncedToDrive: true
+        })
+      }
+      // If local is newer, keep local (no action)
+    }
+  }
+
+  await tx.done
+}
+
+/**
+ * Get sync statistics for UI
+ */
+export async function getSyncStats(): Promise<{ total: number; synced: number; unsynced: number }> {
+  const db = await getDB()
+  const total = await db.count('thoughts')
+
+  const tx = db.transaction('thoughts', 'readonly')
+  const store = tx.objectStore('thoughts')
+  const all = await store.getAll()
+  await tx.done
+
+  const synced = all.filter(t => t.syncedToDrive).length
+
+  return {
+    total,
+    synced,
+    unsynced: total - synced
+  }
 }
