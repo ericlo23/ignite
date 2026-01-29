@@ -15,14 +15,10 @@ interface UseGoogleDriveReturn {
   appendThought: (thought: string, timestamp: number) => Promise<void>
   uploadThoughts: (thoughts: ThoughtEntry[]) => Promise<void>
   isLoading: boolean
-  error: string | null
-  hasPermissionError: boolean
-  clearError: () => void
 }
 
 export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn {
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const fileIdRef = useRef<string | null>(null)
 
   /**
@@ -35,7 +31,6 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       // Get or create file ID
@@ -48,7 +43,6 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
       return content
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch from Drive'
-      setError(message)
 
       // If file not found, clear cache
       if (message.includes('not found') || message.includes('404')) {
@@ -78,7 +72,6 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       // Get or create file ID
@@ -88,10 +81,6 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
 
       // Append thought to file with precise timestamp
       await appendThoughtToAPI(accessToken, fileIdRef.current, thought, timestamp)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to append to Drive'
-      setError(message)
-      throw err
     } finally {
       setIsLoading(false)
     }
@@ -106,7 +95,6 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
     }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       // Get or create file ID
@@ -116,36 +104,16 @@ export function useGoogleDrive(accessToken: string | null): UseGoogleDriveReturn
 
       // Upload complete thought list
       await uploadThoughtsToAPI(accessToken, fileIdRef.current, thoughts)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to upload to Drive'
-      setError(message)
-      throw err
     } finally {
       setIsLoading(false)
     }
   }, [accessToken])
-
-  const clearError = useCallback(() => {
-    setError(null)
-  }, [])
-
-  // Compute permission error from error state
-  const hasPermissionError = Boolean(
-    error &&
-    (error.toLowerCase().includes('permission') ||
-     error.toLowerCase().includes('unauthorized') ||
-     error.toLowerCase().includes('401') ||
-     error.toLowerCase().includes('403'))
-  )
 
   return {
     fetchFileContent,
     parseThoughts,
     appendThought,
     uploadThoughts,
-    isLoading,
-    error,
-    hasPermissionError,
-    clearError
+    isLoading
   }
 }

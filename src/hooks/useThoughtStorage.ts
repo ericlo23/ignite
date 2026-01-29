@@ -18,10 +18,8 @@ interface UseThoughtStorageReturn {
   saveThought: (thought: string) => Promise<number>
   isSaving: boolean
   lastSaved: Date | null
-  saveError: string | null
   syncStats: SyncStats
   updateSyncStats: () => Promise<void>
-  clearSaveError: () => void
   // Sync operations
   mergeFromDrive: (driveThoughts: ThoughtEntry[]) => Promise<void>
   getUnsynced: () => Promise<ThoughtEntry[]>
@@ -32,7 +30,6 @@ interface UseThoughtStorageReturn {
 export function useThoughtStorage(): UseThoughtStorageReturn {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [syncStats, setSyncStats] = useState<SyncStats>({ total: 0, synced: 0, unsynced: 0 })
 
   // Update sync stats
@@ -49,30 +46,20 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
   // Save thought to local storage
   const saveThought = useCallback(async (thought: string): Promise<number> => {
     if (!thought.trim()) {
-      setSaveError('Thought cannot be empty')
-      return 0
+      throw new Error('Thought cannot be empty')
     }
 
     setIsSaving(true)
-    setSaveError(null)
 
     try {
       const id = await saveThoughtToStorage(thought.trim())
       setLastSaved(new Date())
       await updateSyncStats()
       return id
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save locally'
-      setSaveError(message)
-      return 0
     } finally {
       setIsSaving(false)
     }
   }, [updateSyncStats])
-
-  const clearSaveError = useCallback(() => {
-    setSaveError(null)
-  }, [])
 
   // Sync operations
   const mergeFromDrive = useCallback(async (driveThoughts: ThoughtEntry[]): Promise<void> => {
@@ -100,10 +87,8 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
     saveThought,
     isSaving,
     lastSaved,
-    saveError,
     syncStats,
     updateSyncStats,
-    clearSaveError,
     // Sync operations
     mergeFromDrive,
     getUnsynced,

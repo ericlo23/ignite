@@ -40,6 +40,22 @@ async function buildDriveError(response: Response, fallback: string): Promise<st
 }
 
 /**
+ * Check if an error indicates a Google Drive permission issue
+ * Detects 401/403 errors and permission-related messages
+ */
+export function isPermissionError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+
+  const message = error.message.toLowerCase()
+  return (
+    message.includes('permission') ||
+    message.includes('unauthorized') ||
+    message.includes('401') ||
+    message.includes('403')
+  )
+}
+
+/**
  * Find or create the thoughts markdown file in Google Drive
  */
 export async function findOrCreateThoughtsFile(accessToken: string): Promise<string> {

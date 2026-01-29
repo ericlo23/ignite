@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { isPermissionError } from '../services/googleDrive'
 import { useGoogleDrive } from './useGoogleDrive'
 import { useThoughtStorage } from './useThoughtStorage'
 
@@ -35,6 +36,8 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
 
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [hasPermissionError, setHasPermissionError] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isOnline] = useState(navigator.onLine)
 
   /**
@@ -88,6 +91,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sync failed'
       setSyncError(message)
+      setHasPermissionError(isPermissionError(err))
     } finally {
       setIsSyncing(false)
     }
@@ -107,6 +111,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Background sync failed'
       setSyncError(message)
+      setHasPermissionError(isPermissionError(error))
       console.error('Background sync failed:', error)
     }
   }, [accessToken, driveHook, storageHook])
@@ -118,25 +123,35 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
   const saveThought = useCallback(async (thought: string): Promise<boolean> => {
     if (!thought.trim()) return false
 
-    // Save locally first
-    const id = await storageHook.saveThought(thought.trim())
+    try {
+      // Save locally first (now throws on error)
+      const id = await storageHook.saveThought(thought.trim())
 
-    // If save failed (id is 0), return false
-    if (id === 0) return false
+      // Clear any previous save errors
+      setSaveError(null)
 
-    // Background sync to Drive if signed in and online
-    const isSignedIn = Boolean(accessToken)
-    if (isSignedIn && isOnline) {
-      syncThoughtToDrive(id, thought.trim())
+      // Background sync to Drive if signed in and online
+      const isSignedIn = Boolean(accessToken)
+      if (isSignedIn && isOnline) {
+        syncThoughtToDrive(id, thought.trim())
+      }
+
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save locally'
+      setSaveError(message)
+      return false
     }
-
-    return true
   }, [accessToken, isOnline, storageHook, syncThoughtToDrive])
+
+  const clearSaveError = useCallback(() => {
+    setSaveError(null)
+  }, [])
 
   const clearSyncError = useCallback(() => {
     setSyncError(null)
-    driveHook.clearError()
-  }, [driveHook])
+    setHasPermissionError(false)
+  }, [])
 
   return {
     // Main operations
@@ -146,12 +161,12 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     isSaving: storageHook.isSaving,
     isSyncing,
     lastSaved: storageHook.lastSaved,
-    saveError: storageHook.saveError,
+    saveError: saveError,
     syncError,
     syncStats: storageHook.syncStats,
-    hasPermissionError: driveHook.hasPermissionError,
+    hasPermissionError: hasPermissionError,
     // Actions
-    clearSaveError: storageHook.clearSaveError,
+    clearSaveError: clearSaveError,
     clearSyncError
   }
 }
