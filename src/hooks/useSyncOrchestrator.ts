@@ -108,6 +108,8 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
   const syncThoughtToDrive = useCallback(async (id: number, thought: string) => {
     if (!accessToken) return
 
+    setIsSyncing(true)
+
     try {
       await appendThought(thought, id)
       await markSynced(id)
@@ -117,6 +119,8 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
       setSyncError(message)
       setHasPermissionError(isPermissionError(error))
       console.error('Background sync failed:', error)
+    } finally {
+      setIsSyncing(false)
     }
   }, [accessToken, appendThought, markSynced, updateSyncStats])
 

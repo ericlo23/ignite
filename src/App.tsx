@@ -24,7 +24,6 @@ function App() {
     isSyncing,
     saveError,
     syncError,
-    syncStats,
     hasPermissionError: hasSyncPermissionError,
     clearSaveError,
     clearSyncError
@@ -93,11 +92,11 @@ function App() {
                 </h1>
                 <div className="header-actions">
                   {!isOnline && <span className="offline-badge">Offline</span>}
-                  {syncStats.unsynced > 0 && isSignedIn && !hasSyncPermissionError && (
+                  {isSyncing && (
                     <span
                       className="sync-cloud"
-                      title={`Syncing ${syncStats.unsynced} thought${syncStats.unsynced === 1 ? '' : 's'}...`}
-                      aria-label={`Syncing ${syncStats.unsynced} thought${syncStats.unsynced === 1 ? '' : 's'}...`}
+                      title="Syncing to Drive..."
+                      aria-label="Syncing to Drive..."
                     >
                       ☁️
                     </span>
