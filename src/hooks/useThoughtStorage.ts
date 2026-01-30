@@ -7,6 +7,7 @@ import {
   markSyncedToDrive,
   ThoughtEntry
 } from '../services/storage'
+import { logger } from '../utils/logger'
 
 interface SyncStats {
   total: number
@@ -34,7 +35,9 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
 
   // Update sync stats
   const updateSyncStats = useCallback(async () => {
+    logger.storage('Update stats → Triggered')
     const stats = await getSyncStats()
+    logger.storage('Update stats → Complete', stats)
     setSyncStats(stats)
   }, [])
 
@@ -49,37 +52,49 @@ export function useThoughtStorage(): UseThoughtStorageReturn {
       throw new Error('Thought cannot be empty')
     }
 
+    logger.storage('Save thought → Starting', { isSaving: true, thought: thought.slice(0, 50) + (thought.length > 50 ? '...' : '') })
     setIsSaving(true)
 
     try {
       const id = await saveThoughtToStorage(thought.trim())
-      setLastSaved(new Date())
+      logger.storage('Save thought → ID returned', { id })
+      const savedTime = new Date()
+      setLastSaved(savedTime)
+      logger.storage('Save thought → Complete', { lastSaved: savedTime.toISOString() })
       await updateSyncStats()
       return id
     } finally {
+      logger.storage('Save thought → Finished', { isSaving: false })
       setIsSaving(false)
     }
   }, [updateSyncStats])
 
   // Sync operations
   const mergeFromDrive = useCallback(async (driveThoughts: ThoughtEntry[]): Promise<void> => {
+    logger.storage('Merge from Drive → Starting', { driveCount: driveThoughts.length })
     await mergeThoughtsFromDrive(driveThoughts)
+    logger.storage('Merge from Drive → Complete, updating stats')
     await updateSyncStats()
   }, [updateSyncStats])
 
   const getUnsynced = useCallback(async (): Promise<ThoughtEntry[]> => {
+    logger.storage('Get unsynced → Fetching')
     return await getUnsyncedThoughts()
   }, [])
 
   const markSynced = useCallback(async (id: number): Promise<void> => {
+    logger.storage('Mark synced → Single ID', { id })
     await markSyncedToDrive(id)
+    logger.storage('Mark synced → Updating stats')
     await updateSyncStats()
   }, [updateSyncStats])
 
   const markAllSynced = useCallback(async (ids: number[]): Promise<void> => {
     for (const id of ids) {
+      logger.storage('Mark synced → Marking ID', { id })
       await markSyncedToDrive(id)
     }
+    logger.storage('Mark synced → Bulk complete, updating stats', { count: ids.length })
     await updateSyncStats()
   }, [updateSyncStats])
 

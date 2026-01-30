@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { isPermissionError } from '../services/googleDrive'
 import { useGoogleDrive } from './useGoogleDrive'
 import { useThoughtStorage } from './useThoughtStorage'
+import { logger } from '../utils/logger'
 
 interface SyncStats {
   total: number
@@ -54,6 +55,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
       return
     }
 
+    logger.sync('Pull and merge → Starting', { isSyncing: true })
     setIsSyncing(true)
     setSyncError(null)
     setHasPermissionError(false)
@@ -61,15 +63,19 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     try {
       // 1. Fetch from Drive
       const content = await fetchFileContent()
+      logger.sync('Pull and merge → Fetched content', { length: content.length })
 
       // 2. Parse to entries
       const driveThoughts = parseThoughts(content)
+      logger.sync('Pull and merge → Parsed thoughts', { count: driveThoughts.length })
 
       // 3. Merge into local storage
       await mergeFromDrive(driveThoughts)
+      logger.sync('Pull and merge → Merged to local')
 
       // 4. Get unsynced local thoughts
       const unsynced = await getUnsynced()
+      logger.sync('Pull and merge → Retrieved unsynced', { count: unsynced.length })
 
       if (unsynced.length > 0) {
         // 5. Re-fetch to ensure we have latest
@@ -85,19 +91,24 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
         )
 
         // 8. Upload to Drive
+        logger.sync('Pull and merge → Uploading thoughts', { unique: uniqueThoughts.length })
         await uploadThoughts(uniqueThoughts)
 
         // 9. Mark all as synced
         await markAllSynced(unsynced.map(t => t.id))
+        logger.sync('Pull and merge → Marked synced', { ids: unsynced.map(t => t.id) })
       }
 
       // 10. Ensure stats are up-to-date after sync completes
       await updateSyncStats()
+      logger.sync('Pull and merge → Complete')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sync failed'
+      logger.sync('Pull and merge → Error', { message, isPermissionError: isPermissionError(err) })
       setSyncError(message)
       setHasPermissionError(isPermissionError(err))
     } finally {
+      logger.sync('Pull and merge → Finished', { isSyncing: false })
       setIsSyncing(false)
     }
   }, [accessToken, fetchFileContent, parseThoughts, mergeFromDrive, getUnsynced, uploadThoughts, markAllSynced, updateSyncStats])
@@ -109,6 +120,7 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
   const syncThoughtToDrive = useCallback(async (id: number, thought: string) => {
     if (!accessToken) return
 
+    logger.sync('Single sync → Starting', { id, isSyncing: true })
     setIsSyncing(true)
     setSyncError(null)
     setHasPermissionError(false)
@@ -116,13 +128,16 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     try {
       await appendThought(thought, id)
       await markSynced(id)
+      logger.sync('Single sync → Marked synced', { id })
       await updateSyncStats()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Background sync failed'
+      logger.sync('Single sync → Error', { id, message })
       setSyncError(message)
       setHasPermissionError(isPermissionError(error))
       console.error('Background sync failed:', error)
     } finally {
+      logger.sync('Single sync → Finished', { isSyncing: false })
       setIsSyncing(false)
     }
   }, [accessToken, appendThought, markSynced, updateSyncStats])
@@ -135,21 +150,26 @@ export function useSyncOrchestrator(accessToken: string | null): UseSyncOrchestr
     if (!thought.trim()) return false
 
     try {
+      logger.sync('Save thought → Starting', { thought: thought.slice(0, 50) + (thought.length > 50 ? '...' : '') })
       // Save locally first (now throws on error)
       const id = await saveThoughtToStorage(thought.trim())
 
       // Clear any previous save errors
+      logger.sync('Save thought → Error cleared')
       setSaveError(null)
 
       // Background sync to Drive if signed in and online
       const isSignedIn = Boolean(accessToken)
       if (isSignedIn && isOnline) {
+        logger.sync('Save thought → Background sync triggered', { online: isOnline })
         syncThoughtToDrive(id, thought.trim())
       }
 
+      logger.sync('Save thought → Complete', { success: true })
       return true
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save locally'
+      logger.sync('Save thought → Error', { message })
       setSaveError(message)
       return false
     }

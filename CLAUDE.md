@@ -87,3 +87,4 @@ main.tsx → App.tsx (BrowserRouter)
 - **TypeScript:** strict mode with `noUnusedLocals` and `noUnusedParameters` enabled
 - **UI language:** English
 - **Fire theme:** dark charcoal background (`#1a0f0a`), flame orange accent (`#ff6b35`), CSS custom properties in `index.css`
+- **Debug logging:** Centralized logger (`src/utils/logger.ts`) with categories (API, AUTH, SYNC, STORAGE). Enable via `localStorage.setItem('ignite_debug', 'true')`. All console logs stripped from production builds via `vite-plugin-remove-console`.

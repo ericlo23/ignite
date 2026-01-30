@@ -1,4 +1,5 @@
 import type { WorkerLoginResponse, WorkerAuthResponse, WorkerRefreshResponse } from '../types'
+import { logger } from '../utils/logger'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL as string
 const TOKEN_KEY = 'ignite_access_token'
@@ -49,6 +50,7 @@ async function silentRefresh(): Promise<void> {
   isRefreshing = true
 
   try {
+    logger.api('POST /auth/refresh → Request sent', { hasSession: !!sessionToken })
     const res = await fetch(`${WORKER_URL}/auth/refresh`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${sessionToken}` },
@@ -56,6 +58,7 @@ async function silentRefresh(): Promise<void> {
 
     if (!res.ok) {
       // Session expired or refresh token revoked
+      logger.api('POST /auth/refresh ← Session expired/revoked')
       accessToken = null
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(TOKEN_EXPIRY_KEY)
@@ -66,10 +69,12 @@ async function silentRefresh(): Promise<void> {
     }
 
     const data: WorkerRefreshResponse = await res.json()
+    logger.api(`POST /auth/refresh ← Token received (expires in ${data.expires_in}s)`)
     saveToken(data.access_token, data.expires_in)
     notifyTokenChange(data.access_token)
-  } catch {
+  } catch (error) {
     // Network error — don't clear session, will retry on visibility change
+    logger.api('POST /auth/refresh ← Network error', error)
   } finally {
     isRefreshing = false
   }
@@ -152,11 +157,13 @@ export async function initGoogleAuth(): Promise<void> {
 
 export async function signIn(): Promise<void> {
   const redirectUri = `${window.location.origin}/auth/callback`
+  logger.api('GET /auth/login → Request sent')
   const res = await fetch(`${WORKER_URL}/auth/login?redirect_uri=${encodeURIComponent(redirectUri)}`)
   if (!res.ok) {
     throw new Error('Failed to get login URL')
   }
   const data: WorkerLoginResponse = await res.json()
+  logger.api('GET /auth/login ← Redirect URL received', { url: data.url })
   // Store state for CSRF verification
   sessionStorage.setItem('ignite_oauth_state', data.state)
   // Redirect to Google OAuth consent
@@ -172,6 +179,7 @@ export async function handleAuthCallback(code: string, state: string): Promise<b
   }
 
   const redirectUri = `${window.location.origin}/auth/callback`
+  logger.api('POST /auth/callback → Request sent', { codeLength: code.length })
   const res = await fetch(`${WORKER_URL}/auth/callback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -184,8 +192,10 @@ export async function handleAuthCallback(code: string, state: string): Promise<b
   }
 
   const data: WorkerAuthResponse = await res.json()
+  logger.api(`POST /auth/callback ← Tokens received (expires in ${data.expires_in}s)`)
   saveToken(data.access_token, data.expires_in)
   localStorage.setItem(SESSION_KEY, data.session_token)
+  logger.api('POST /auth/callback ← Session saved')
   notifyTokenChange(data.access_token)
   if (data.scope) {
     localStorage.setItem(GRANTED_SCOPES_KEY, data.scope)
@@ -220,12 +230,15 @@ export async function signOut(): Promise<void> {
 
   if (sessionToken) {
     try {
+      logger.api('POST /auth/revoke → Request sent')
       await fetch(`${WORKER_URL}/auth/revoke`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
       })
-    } catch {
+      logger.api('POST /auth/revoke ← Revocation complete')
+    } catch (error) {
       // Best-effort revocation
+      logger.api('POST /auth/revoke ← Error (best-effort)', error)
     }
   }
 }

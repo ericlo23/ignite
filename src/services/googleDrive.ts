@@ -2,6 +2,7 @@ import { formatThoughtEntry, getInitialContent, generateMarkdown } from '../util
 import { parseThoughts } from '../utils/thoughtParser'
 import type { ParsedThought } from '../types'
 import type { ThoughtEntry } from './storage'
+import { logger } from '../utils/logger'
 
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3'
 const UPLOAD_API_BASE = 'https://www.googleapis.com/upload/drive/v3'
@@ -64,6 +65,7 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
   if (cachedFileId) {
     // Verify the file still exists
     try {
+      logger.api(`GET /files/${cachedFileId} → Verifying cached file`)
       const response = await fetch(
         `${DRIVE_API_BASE}/files/${cachedFileId}?fields=id,name,trashed`,
         {
@@ -73,16 +75,20 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
       if (response.ok) {
         const file = await response.json()
         if (!file.trashed) {
+          logger.api(`GET /files/${cachedFileId} ← File valid`)
           return cachedFileId
         }
+        logger.api(`GET /files/${cachedFileId} ← File trashed`)
       }
-    } catch {
+    } catch (error) {
       // File might not exist, continue to search
+      logger.api(`GET /files/${cachedFileId} ← Error`, error)
     }
   }
 
   // Search for existing file
   const query = encodeURIComponent(`name='${THOUGHTS_FILE_NAME}' and trashed=false`)
+  logger.api(`GET /files?q=${THOUGHTS_FILE_NAME} → Searching for file`)
   const searchResponse = await fetch(
     `${DRIVE_API_BASE}/files?q=${query}&spaces=drive&fields=files(id,name)`,
     {
@@ -98,9 +104,11 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
 
   if (searchResult.files && searchResult.files.length > 0) {
     const fileId = searchResult.files[0].id
+    logger.api(`GET /files?q=${THOUGHTS_FILE_NAME} ← File found`, { fileId })
     localStorage.setItem(FILE_ID_KEY, fileId)
     return fileId
   }
+  logger.api(`GET /files?q=${THOUGHTS_FILE_NAME} ← No file found`)
 
   // Create new file with initial content
   const metadata = {
@@ -117,6 +125,7 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
   )
   form.append('file', new Blob([initialContent], { type: 'text/markdown' }))
 
+  logger.api('POST /upload/files → Creating new file')
   const createResponse = await fetch(
     `${UPLOAD_API_BASE}/files?uploadType=multipart&fields=id`,
     {
@@ -131,6 +140,7 @@ export async function findOrCreateThoughtsFile(accessToken: string): Promise<str
   }
 
   const createResult = await createResponse.json()
+  logger.api('POST /upload/files ← File created', { fileId: createResult.id })
   localStorage.setItem(FILE_ID_KEY, createResult.id)
   return createResult.id
 }
@@ -142,6 +152,7 @@ export async function getFileContent(
   accessToken: string,
   fileId: string
 ): Promise<string> {
+  logger.api(`GET /files/${fileId}?alt=media → Fetching content`)
   const response = await fetch(
     `${DRIVE_API_BASE}/files/${fileId}?alt=media`,
     {
@@ -153,7 +164,9 @@ export async function getFileContent(
     throw new Error(await buildDriveError(response, 'Failed to read file'))
   }
 
-  return response.text()
+  const content = await response.text()
+  logger.api(`GET /files/${fileId}?alt=media ← Content received`, { length: content.length })
+  return content
 }
 
 /**
@@ -173,6 +186,7 @@ export async function appendThought(
   const updatedContent = currentContent + newEntry
 
   // Update file
+  logger.api(`PATCH /upload/files/${fileId} → Appending thought`)
   const response = await fetch(
     `${UPLOAD_API_BASE}/files/${fileId}?uploadType=media`,
     {
@@ -186,8 +200,11 @@ export async function appendThought(
   )
 
   if (!response.ok) {
+    logger.api(`PATCH /upload/files/${fileId} ← Error ${response.status}`)
     throw new Error(await buildDriveError(response, 'Failed to update file'))
   }
+
+  logger.api(`PATCH /upload/files/${fileId} ← Success`)
 }
 
 /**
@@ -235,6 +252,7 @@ export async function uploadThoughts(
   const markdown = generateMarkdown(thoughts)
 
   // Upload to Drive
+  logger.api(`PATCH /upload/files/${fileId} → Uploading ${thoughts.length} thoughts`)
   const response = await fetch(
     `${UPLOAD_API_BASE}/files/${fileId}?uploadType=media`,
     {
@@ -248,6 +266,9 @@ export async function uploadThoughts(
   )
 
   if (!response.ok) {
+    logger.api(`PATCH /upload/files/${fileId} ← Error ${response.status}`)
     throw new Error(await buildDriveError(response, 'Failed to upload thoughts'))
   }
+
+  logger.api(`PATCH /upload/files/${fileId} ← Success`)
 }
