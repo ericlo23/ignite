@@ -136,7 +136,7 @@ function App() {
                 <div className="capture-container">
                   <ThoughtInput
                     onSave={saveThought}
-                    isSaving={isSaving || isSyncing}
+                    isSaving={isSaving}
                   />
                 </div>
               </main>
