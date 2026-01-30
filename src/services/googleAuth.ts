@@ -12,6 +12,7 @@ const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 let accessToken: string | null = null
 let refreshTimerId: ReturnType<typeof setTimeout> | null = null
 let isRefreshing = false
+let isInitialized = false
 
 export type TokenChangeListener = (token: string | null) => void
 let tokenChangeListener: TokenChangeListener | null = null
@@ -47,6 +48,19 @@ function scheduleTokenRefresh(expiresInMs: number): void {
 async function silentRefresh(): Promise<void> {
   const sessionToken = localStorage.getItem(SESSION_KEY)
   if (isRefreshing || !sessionToken) return
+
+  // Skip refresh if we have a valid token with enough time remaining
+  const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY)
+  if (expiry && accessToken) {
+    const remainingMs = parseInt(expiry, 10) - Date.now()
+    if (remainingMs > REFRESH_BUFFER_MS) {
+      logger.api('POST /auth/refresh → Skipped (token still valid)', {
+        remainingMinutes: Math.floor(remainingMs / 60000)
+      })
+      return
+    }
+  }
+
   isRefreshing = true
 
   try {
@@ -143,10 +157,17 @@ async function fetchGrantedScopes(token: string): Promise<string | null> {
 }
 
 export async function initGoogleAuth(): Promise<void> {
+  // Prevent double initialization in React StrictMode
+  if (isInitialized) {
+    logger.auth('Auth initialization → Skipped (already initialized)')
+    return
+  }
+
   if (!WORKER_URL) {
     throw new Error('VITE_WORKER_URL is not configured')
   }
 
+  isInitialized = true
   const hasValidToken = restoreToken()
 
   // If we have a session but no valid access token, try a silent refresh
@@ -156,6 +177,15 @@ export async function initGoogleAuth(): Promise<void> {
 }
 
 export async function signIn(): Promise<void> {
+  // Clear access token before reauthorization to prevent premature pullAndMerge
+  // This ensures pullAndMerge only triggers after new token with correct scopes is obtained
+  accessToken = null
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(TOKEN_EXPIRY_KEY)
+  clearScheduledRefresh()
+  notifyTokenChange(null)
+  logger.auth('Sign in → Access token cleared')
+
   const redirectUri = `${window.location.origin}/auth/callback`
   logger.api('GET /auth/login → Request sent')
   const res = await fetch(`${WORKER_URL}/auth/login?redirect_uri=${encodeURIComponent(redirectUri)}`)
@@ -178,36 +208,43 @@ export async function handleAuthCallback(code: string, state: string): Promise<b
     throw new Error('Invalid OAuth state — possible CSRF attack')
   }
 
-  const redirectUri = `${window.location.origin}/auth/callback`
-  logger.api('POST /auth/callback → Request sent', { codeLength: code.length })
-  const res = await fetch(`${WORKER_URL}/auth/callback`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, redirect_uri: redirectUri }),
-  })
+  // Prevent silentRefresh from running concurrently
+  isRefreshing = true
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Auth callback failed' }))
-    throw new Error((err as { error: string }).error || 'Auth callback failed')
+  try {
+    const redirectUri = `${window.location.origin}/auth/callback`
+    logger.api('POST /auth/callback → Request sent', { codeLength: code.length })
+    const res = await fetch(`${WORKER_URL}/auth/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Auth callback failed' }))
+      throw new Error((err as { error: string }).error || 'Auth callback failed')
+    }
+
+    const data: WorkerAuthResponse = await res.json()
+    logger.api(`POST /auth/callback ← Tokens received (expires in ${data.expires_in}s)`)
+    saveToken(data.access_token, data.expires_in)
+    localStorage.setItem(SESSION_KEY, data.session_token)
+    logger.api('POST /auth/callback ← Session saved')
+    notifyTokenChange(data.access_token)
+    if (data.scope) {
+      localStorage.setItem(GRANTED_SCOPES_KEY, data.scope)
+    }
+
+    const hasDriveScopeFromResponse = scopeIncludes(data.scope, DRIVE_SCOPE)
+    const tokenInfoScopes = await fetchGrantedScopes(data.access_token)
+    if (tokenInfoScopes) {
+      localStorage.setItem(GRANTED_SCOPES_KEY, tokenInfoScopes)
+    }
+
+    return hasDriveScopeFromResponse || scopeIncludes(tokenInfoScopes, DRIVE_SCOPE)
+  } finally {
+    isRefreshing = false
   }
-
-  const data: WorkerAuthResponse = await res.json()
-  logger.api(`POST /auth/callback ← Tokens received (expires in ${data.expires_in}s)`)
-  saveToken(data.access_token, data.expires_in)
-  localStorage.setItem(SESSION_KEY, data.session_token)
-  logger.api('POST /auth/callback ← Session saved')
-  notifyTokenChange(data.access_token)
-  if (data.scope) {
-    localStorage.setItem(GRANTED_SCOPES_KEY, data.scope)
-  }
-
-  const hasDriveScopeFromResponse = scopeIncludes(data.scope, DRIVE_SCOPE)
-  const tokenInfoScopes = await fetchGrantedScopes(data.access_token)
-  if (tokenInfoScopes) {
-    localStorage.setItem(GRANTED_SCOPES_KEY, tokenInfoScopes)
-  }
-
-  return hasDriveScopeFromResponse || scopeIncludes(tokenInfoScopes, DRIVE_SCOPE)
 }
 
 export function getAccessToken(): string | null {
@@ -223,6 +260,7 @@ export async function signOut(): Promise<void> {
   const sessionToken = localStorage.getItem(SESSION_KEY)
 
   accessToken = null
+  isInitialized = false
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(TOKEN_EXPIRY_KEY)
   localStorage.removeItem(SESSION_KEY)
