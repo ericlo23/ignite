@@ -1,23 +1,10 @@
 /**
- * Format a thought entry with timestamp for the markdown file
+ * Format a thought entry as a single line with ISO 8601 timestamp
+ * Format: {ISO 8601 timestamp} {content}
  */
-export function formatThoughtEntry(thought: string, existingContent: string, timestamp?: number): string {
-  const now = new Date(timestamp || Date.now())
-  const dateStr = formatDate(now)
-  const timeStr = formatTime(now)
-  const tsMs = now.getTime()
-
-  const todayHeader = `# ${dateStr}`
-  const timeEntry = `## ${timeStr} <!-- ${tsMs} -->\n\n${thought}\n\n---\n\n`
-
-  // Check if today's date section already exists
-  if (existingContent.includes(todayHeader)) {
-    // Just return the time entry to append
-    return timeEntry
-  }
-
-  // Return date header + time entry
-  return `${todayHeader}\n\n${timeEntry}`
+export function formatThoughtEntry(_thought: string, _existingContent: string, timestamp?: number): string {
+  const date = new Date(timestamp || Date.now())
+  return `${date.toISOString()} ${_thought}\n`
 }
 
 /**
@@ -52,34 +39,18 @@ export function getInitialContent(): string {
 }
 
 /**
- * Generate markdown content from array of thought entries
- * Used for full Drive file uploads
+ * Generate content from array of thought entries
+ * One line per thought: {ISO 8601 timestamp} {content}
  */
 export function generateMarkdown(
   thoughts: Array<{ timestamp: number; thought: string }>
 ): string {
+  if (thoughts.length === 0) {
+    return ''
+  }
+
   // Sort by timestamp (oldest first for chronological order in file)
   const sorted = [...thoughts].sort((a, b) => a.timestamp - b.timestamp)
 
-  let markdown = ''
-  let currentDate = ''
-
-  for (const thought of sorted) {
-    const date = new Date(thought.timestamp)
-    const dateStr = formatDate(date)
-    const timeStr = formatTime(date)
-    const tsMs = thought.timestamp
-
-    // Add date header if changed
-    if (dateStr !== currentDate) {
-      if (markdown) markdown += '\n'
-      markdown += `# ${dateStr}\n\n`
-      currentDate = dateStr
-    }
-
-    // Add time and content with millisecond timestamp
-    markdown += `## ${timeStr} <!-- ${tsMs} -->\n\n${thought.thought}\n\n---\n\n`
-  }
-
-  return markdown
+  return sorted.map(t => `${new Date(t.timestamp).toISOString()} ${t.thought}`).join('\n') + '\n'
 }

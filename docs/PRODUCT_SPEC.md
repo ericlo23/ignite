@@ -157,29 +157,25 @@ Review → getAllThoughts(local) → display with sync badges
 
 ### Data Format
 
-Thoughts are stored as Markdown in Google Drive with millisecond-precision timestamps:
+Thoughts are stored as a plain text file in Google Drive with one thought per line using ISO 8601 timestamps:
 
-```markdown
-# 2026-01-26
-
-## 09:15 AM <!-- 1738156523456 -->
-
-First thought of the day captured here.
-
----
-
-## 02:30 PM <!-- 1738163423789 -->
-
-Another idea that came to mind.
-
----
+```
+2026-01-26T09:15:23.456Z First thought of the day captured here.
+2026-01-26T14:30:45.789Z Another idea that came to mind.
 ```
 
-The HTML comment contains the precise millisecond timestamp, ensuring:
-- Exact timestamp preservation during sync (no precision loss)
+Format: `{ISO 8601 timestamp} {content}`
+
+This format ensures:
+- Exact millisecond timestamp precision via ISO 8601
 - Reliable deduplication by timestamp
-- Backward compatibility (old format without timestamp still parseable)
-- Human readability maintained (comment is invisible in markdown viewers)
+- Simple parsing (split on first space)
+- Chronological sorting in text editors
+- Human readability (ISO 8601 is a standard format)
+
+**Timestamp Collision Handling:**
+- On save: If a timestamp already exists, increment millisecond until unique
+- On merge from Drive: Drive is source of truth. If local thought has same timestamp but different content, relocate local thought to a new unique timestamp, then insert Drive thought at original timestamp
 
 ## Visual Design
 

@@ -38,12 +38,25 @@ function getDB(): Promise<IDBPDatabase<IgniteDB>> {
 }
 
 /**
+ * Get a unique timestamp by incrementing milliseconds if collision exists
+ */
+async function getUniqueTimestamp(db: IDBPDatabase<IgniteDB>, baseTs: number): Promise<number> {
+  let ts = baseTs
+  while (await db.get('thoughts', ts)) {
+    ts++
+  }
+  return ts
+}
+
+/**
  * Save a thought to local storage - primary save function
  * Always succeeds locally, returns timestamp ID
+ * Handles timestamp collisions by incrementing millisecond
  */
 export async function saveThought(thought: string): Promise<number> {
   const db = await getDB()
-  const id = Date.now()
+  const baseTs = Date.now()
+  const id = await getUniqueTimestamp(db, baseTs)
   const entry: ThoughtEntry = {
     id,
     thought,
@@ -100,6 +113,7 @@ export async function markSyncedToDrive(id: number): Promise<void> {
 
 /**
  * Merge thoughts from Drive, deduplicating by timestamp
+ * Drive is the source of truth - local conflicts are relocated
  */
 export async function mergeThoughtsFromDrive(
   driveThoughts: ThoughtEntry[]
@@ -109,25 +123,49 @@ export async function mergeThoughtsFromDrive(
   const store = tx.objectStore('thoughts')
 
   for (const driveThought of driveThoughts) {
-    // Check if exists locally by exact ID (millisecond precision)
     const existing = await store.get(driveThought.id)
 
     if (!existing) {
-      // New from Drive, insert
+      // No collision, insert directly
       await store.add({
         ...driveThought,
         syncedToDrive: true
       })
-    } else {
-      // Exists, compare lastModified
-      if (driveThought.lastModified > existing.lastModified) {
-        // Drive is newer, update local
+    } else if (existing.thought === driveThought.thought) {
+      // Same content, mark as synced (duplicate)
+      if (!existing.syncedToDrive) {
         await store.put({
-          ...driveThought,
+          ...existing,
           syncedToDrive: true
         })
       }
-      // If local is newer, keep local (no action)
+    } else {
+      // Different content with same timestamp - relocate LOCAL thought
+      // Drive is source of truth, so we preserve Drive timestamp
+
+      // 1. Find new unique timestamp for local thought
+      let newLocalTs = existing.id + 1
+      while (await store.get(newLocalTs)) {
+        newLocalTs++
+      }
+
+      // 2. Delete old local entry
+      await store.delete(existing.id)
+
+      // 3. Re-insert local with new timestamp (mark as unsynced since it moved)
+      await store.add({
+        ...existing,
+        id: newLocalTs,
+        timestamp: newLocalTs,
+        syncedToDrive: false,
+        lastModified: Date.now()
+      })
+
+      // 4. Insert Drive thought at original timestamp
+      await store.add({
+        ...driveThought,
+        syncedToDrive: true
+      })
     }
   }
 
