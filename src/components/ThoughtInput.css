@@ -7,6 +7,8 @@
 
 .thought-input {
   width: 100%;
+  flex: 1;
+  min-height: 200px;
   background: var(--bg-secondary);
   border: 2px solid transparent;
   border-radius: 16px;
