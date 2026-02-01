@@ -5,7 +5,7 @@
   flex-direction: column;
 }
 
-.thought-input {
+.thought-textarea {
   width: 100%;
   flex: 1;
   min-height: 200px;
@@ -15,20 +15,22 @@
   padding: 20px;
   font-size: 20px;
   color: var(--text-primary);
+  resize: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.6;
 }
 
-.thought-input:focus {
+.thought-textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
-.thought-input::placeholder {
+.thought-textarea::placeholder {
   color: var(--text-secondary);
 }
 
-.thought-input:disabled {
+.thought-textarea:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -66,7 +68,7 @@
 
 /* Mobile optimizations */
 @media (max-width: 480px) {
-  .thought-input {
+  .thought-textarea {
     font-size: 18px;
     padding: 16px;
     border-radius: 14px;

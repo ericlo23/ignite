@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent } from 'react'
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent, ChangeEvent } from 'react'
 import './ThoughtInput.css'
 
 interface ThoughtInputProps {
@@ -9,12 +9,12 @@ interface ThoughtInputProps {
 
 export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) {
   const [thought, setThought] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-focus on mount
   useEffect(() => {
     if (!disabled) {
-      inputRef.current?.focus()
+      textareaRef.current?.focus()
     }
   }, [disabled])
 
@@ -29,15 +29,29 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
     }
   }
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Prevent Enter from creating newlines, submit instead
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e)
+    }
+  }
+
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    // Remove any newline characters (from paste, etc.)
+    const value = e.target.value.replace(/[\r\n]/g, '')
+    setThought(value)
+  }
+
   return (
     <form className="thought-form" onSubmit={handleSubmit}>
-      <input
-        ref={inputRef}
-        type="text"
+      <textarea
+        ref={textareaRef}
         value={thought}
-        onChange={(e) => setThought(e.target.value)}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
         placeholder="What's on your mind?"
-        className="thought-input"
+        className="thought-textarea"
         disabled={isSaving || disabled}
         autoComplete="off"
         autoCorrect="off"
