@@ -164,7 +164,9 @@ Thoughts are stored as a plain text file in Google Drive with one thought per li
 2026-01-26T14:30:45.789Z Another idea that came to mind.
 ```
 
-Format: `{ISO 8601 timestamp} {content}`
+Format: `{ISO 8601 timestamp} {escaped content}`
+
+Content is escaped for single-line storage: newlines become `\n`, backslashes become `\\`.
 
 This format ensures:
 - Exact millisecond timestamp precision via ISO 8601

@@ -1,10 +1,18 @@
 /**
+ * Escape content for single-line storage
+ * Newlines become \n, backslashes become \\
+ */
+function escapeContent(content: string): string {
+  return content.replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
+}
+
+/**
  * Format a thought entry as a single line with ISO 8601 timestamp
- * Format: {ISO 8601 timestamp} {content}
+ * Format: {ISO 8601 timestamp} {escaped content}
  */
 export function formatThoughtEntry(_thought: string, _existingContent: string, timestamp?: number): string {
   const date = new Date(timestamp || Date.now())
-  return `${date.toISOString()} ${_thought}\n`
+  return `${date.toISOString()} ${escapeContent(_thought)}\n`
 }
 
 /**
@@ -52,5 +60,5 @@ export function generateMarkdown(
   // Sort by timestamp (oldest first for chronological order in file)
   const sorted = [...thoughts].sort((a, b) => a.timestamp - b.timestamp)
 
-  return sorted.map(t => `${new Date(t.timestamp).toISOString()} ${t.thought}`).join('\n') + '\n'
+  return sorted.map(t => `${new Date(t.timestamp).toISOString()} ${escapeContent(t.thought)}`).join('\n') + '\n'
 }

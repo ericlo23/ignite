@@ -1,8 +1,34 @@
 import type { ParsedThought } from '../types'
 
 /**
+ * Unescape content from single-line storage
+ * \n becomes newline, \\ becomes backslash
+ */
+function unescapeContent(content: string): string {
+  let result = ''
+  let i = 0
+  while (i < content.length) {
+    if (content[i] === '\\' && i + 1 < content.length) {
+      const next = content[i + 1]
+      if (next === 'n') {
+        result += '\n'
+        i += 2
+        continue
+      } else if (next === '\\') {
+        result += '\\'
+        i += 2
+        continue
+      }
+    }
+    result += content[i]
+    i++
+  }
+  return result
+}
+
+/**
  * Parse single-line format content into structured thought entries
- * Format: {ISO 8601 timestamp} {content}
+ * Format: {ISO 8601 timestamp} {escaped content}
  * Example: 2026-01-26T09:15:23.456Z First thought of the day
  */
 export function parseThoughts(content: string): ParsedThought[] {
@@ -35,7 +61,7 @@ export function parseThoughts(content: string): ParsedThought[] {
       id: String(timestamp.getTime()),
       date: isoTimestamp.substring(0, 10),   // YYYY-MM-DD
       time: isoTimestamp.substring(11, 23),  // HH:mm:ss.sss
-      content: thoughtContent,
+      content: unescapeContent(thoughtContent),
       timestamp
     })
   }
