@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, FormEvent } from 'react'
 import './ThoughtInput.css'
 
 interface ThoughtInputProps {
@@ -9,27 +9,14 @@ interface ThoughtInputProps {
 
 export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) {
   const [thought, setThought] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Auto-focus on mount
   useEffect(() => {
     if (!disabled) {
-      textareaRef.current?.focus()
+      inputRef.current?.focus()
     }
   }, [disabled])
-
-  // Auto-resize textarea based on content
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea && thought) {
-      // Only grow when content exceeds current height
-      const scrollHeight = textarea.scrollHeight
-      const currentHeight = textarea.clientHeight
-      if (scrollHeight > currentHeight) {
-        textarea.style.height = `${scrollHeight}px`
-      }
-    }
-  }, [thought])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -38,33 +25,20 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
       // Only clear input if save was successful
       if (success) {
         setThought('')
-        // Reset textarea height
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto'
-        }
       }
-    }
-  }
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Cmd/Ctrl + Enter to save
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault()
-      handleSubmit(e)
     }
   }
 
   return (
     <form className="thought-form" onSubmit={handleSubmit}>
-      <textarea
-        ref={textareaRef}
+      <input
+        ref={inputRef}
+        type="text"
         value={thought}
         onChange={(e) => setThought(e.target.value)}
-        onKeyDown={handleKeyDown}
         placeholder="What's on your mind?"
-        className="thought-textarea"
+        className="thought-input"
         disabled={isSaving || disabled}
-        rows={3}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}

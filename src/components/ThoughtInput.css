@@ -5,33 +5,28 @@
   flex-direction: column;
 }
 
-.thought-textarea {
+.thought-input {
   width: 100%;
-  flex: 1;
-  max-height: 100%;
   background: var(--bg-secondary);
   border: 2px solid transparent;
   border-radius: 16px;
   padding: 20px;
   font-size: 20px;
   color: var(--text-primary);
-  resize: none;
-  min-height: 200px;
   transition: border-color 0.2s, box-shadow 0.2s;
-  line-height: 1.6;
 }
 
-.thought-textarea:focus {
+.thought-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
 
-.thought-textarea::placeholder {
+.thought-input::placeholder {
   color: var(--text-secondary);
 }
 
-.thought-textarea:disabled {
+.thought-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -69,7 +64,7 @@
 
 /* Mobile optimizations */
 @media (max-width: 480px) {
-  .thought-textarea {
+  .thought-input {
     font-size: 18px;
     padding: 16px;
     border-radius: 14px;
