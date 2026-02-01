@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, FormEvent, KeyboardEvent, ChangeEvent } from 'react'
 import './ThoughtInput.css'
 
 interface ThoughtInputProps {
@@ -18,19 +18,6 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
     }
   }, [disabled])
 
-  // Auto-resize textarea based on content
-  useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea && thought) {
-      // Only grow when content exceeds current height
-      const scrollHeight = textarea.scrollHeight
-      const currentHeight = textarea.clientHeight
-      if (scrollHeight > currentHeight) {
-        textarea.style.height = `${scrollHeight}px`
-      }
-    }
-  }, [thought])
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (thought.trim() && !isSaving && !disabled) {
@@ -38,20 +25,22 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
       // Only clear input if save was successful
       if (success) {
         setThought('')
-        // Reset textarea height
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto'
-        }
       }
     }
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Cmd/Ctrl + Enter to save
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    // Prevent Enter from creating newlines, submit instead
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit(e)
     }
+  }
+
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    // Remove any newline characters (from paste, etc.)
+    const value = e.target.value.replace(/[\r\n]/g, '')
+    setThought(value)
   }
 
   return (
@@ -59,12 +48,11 @@ export function ThoughtInput({ onSave, isSaving, disabled }: ThoughtInputProps) 
       <textarea
         ref={textareaRef}
         value={thought}
-        onChange={(e) => setThought(e.target.value)}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="What's on your mind?"
         className="thought-textarea"
         disabled={isSaving || disabled}
-        rows={3}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
